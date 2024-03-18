@@ -1,7 +1,8 @@
 const express = require('express');
 const { registerUser, sendCodeToEmail, verifyEmail, loginUser, getUserInfo } = require('../Controllers/UserController');
+const { verifyJWT } = require('../Middlewares/VerifyJWT');
 const router = express.Router();
-const verifyJWT = require('../Middlewares/VerifyJWT');
+
 
 //router.use((req, res) => {return res.status(400).json({ message: `router reached: ${req.url}`})});
 
