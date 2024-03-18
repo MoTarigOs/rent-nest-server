@@ -1,7 +1,7 @@
 const asyncHandler = require('express-async-handler');
-const { isValidPassword, isValidUsername, isValidEmail, generateRandomCode, sendToEmail, isValidText, updateWhiteListAccessToken } = require('../utils/logic');
-const User = require('../Data/UserModel');
-const VerCode = require('../Data/VerificationCode');
+const { isValidPassword, isValidUsername, isValidEmail, generateRandomCode, sendToEmail, isValidText, updateWhiteListAccessToken } = require('../utils/logic.js');
+const User = require('../Data/UserModel.js');
+const VerCode = require('../Data/VerificationCode.js');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { default: mongoose } = require('mongoose');

@@ -1,6 +1,6 @@
 const { default: mongoose } = require('mongoose');
-const Property = require('../Data/PropertyModel');
-const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter } = require('../utils/logic');
+const Property = require('../Data/PropertyModel.js');
+const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter } = require('../utils/logic.js');
 
 
 const getProperties = async(req, res) => {

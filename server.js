@@ -3,22 +3,22 @@ const app = express();
 require('dotenv').config();
 var cors = require('cors');
 const mongoose = require('mongoose');
-const connectDB = require('./Config/dbConnection');
+const connectDB = require('./Config/dbConnection.js');
 const PORT = process.env.PORT;
 const cookieParser = require('cookie-parser');
 
 connectDB();
 
 
-app.use(cors({ origin: 'http://localhost:3000', credentials: true, allowedHeaders: ['Content-Type', 'Authorization', 'authorization'] }));
+app.use(cors({ origin: '*', credentials: true, allowedHeaders: ['Content-Type', 'Authorization', 'authorization'] }));
 app.use(express.urlencoded({ extended: false })); 
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
 
 // handle routers
-app.use("/user", require("./Routers/UserRouter"));
-app.use("/property", require("./Routers/ProperityRouter"));
+app.use("/user", require("./Routers/UserRouter.js"));
+app.use("/property", require("./Routers/ProperityRouter.js"));
 // app.use("/admin", require("./Routers/AdminRouter"));
 
 

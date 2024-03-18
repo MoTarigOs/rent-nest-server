@@ -1,4 +1,4 @@
-const WL = require('../Data/WhiteList');
+const WL = require('../Data/WhiteList.js');
 const axios = require('axios');
 require('dotenv').config();
 const path = require('path');
