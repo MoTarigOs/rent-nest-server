@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { checkWhiteListAccessToken } = require('../utils/logic.js');
+const { checkWhiteListAccessToken } = require('../utils/logic');
 const asyncHandler = require('express-async-handler');
 
 const verifyJWT = asyncHandler( async (req, res, next) => {
@@ -37,4 +37,4 @@ const verifyJWT = asyncHandler( async (req, res, next) => {
     );
 });
 
-module.exports = { verifyJWT };
+module.exports = verifyJWT;
