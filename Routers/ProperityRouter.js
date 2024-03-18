@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createProperty, getProperty, getOwnerProperty, getProperties } = require('../Controllers/ProperityController.js');
-const verifyJWT = require('../Middlewares/VerifyJWT.js');
+const verifyJWT = require('../middleware/VerifyJWT.js');
 
 router.get('/item', getProperty);
 
