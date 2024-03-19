@@ -4,13 +4,13 @@ require('dotenv').config();
 var cors = require('cors');
 const mongoose = require('mongoose');
 const connectDB = require('./Config/dbConnection.js');
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3500;
 const cookieParser = require('cookie-parser');
 
 connectDB();
 
 
-app.use(cors({ origin: '*', credentials: true, allowedHeaders: ['Content-Type', 'Authorization', 'authorization'] }));
+app.use(cors({ origin: 'https://rent-nest-site.vercel.app', credentials: true, allowedHeaders: ['Content-Type', 'Authorization', 'authorization'] }));
 app.use(express.urlencoded({ extended: false })); 
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
