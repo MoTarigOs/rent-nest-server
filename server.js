@@ -6,9 +6,9 @@ const mongoose = require('mongoose');
 const connectDB = require('./Config/dbConnection.js');
 const PORT = process.env.PORT || 3500;
 const cookieParser = require('cookie-parser');
+const verifyReCaptcha = require('./middleware/VerifyReCaptcha.js');
 
 connectDB();
-
 
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN, credentials: true, allowedHeaders: ['Content-Type', 'Authorization', 'authorization'] }));
 app.use(express.urlencoded({ extended: false })); 
@@ -21,6 +21,9 @@ app.use("/user", require("./Routers/UserRouter.js"));
 app.use("/property", require("./Routers/ProperityRouter.js"));
 app.use("/report", require("./Routers/ReportRouter.js"));
 app.use("/admin", require("./Routers/AdminRouter.js"));
+app.post("/test-recaptcha", verifyReCaptcha, (req, res) => {
+    res.status(201).json({ message: 'success' });
+});
 
 
 //handle errors & exceptions, with logger

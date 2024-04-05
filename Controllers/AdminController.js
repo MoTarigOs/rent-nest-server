@@ -44,7 +44,7 @@ const getPropertiesForCheck = async(req, res) => {
 
         const properties = await Property.find({ checked: false })
             .select('_id images title description ratings city neighbourhood price discount specific_catagory')
-            .limit(300).sort({ updatedAt: 1, createdAt: 1 }).skip((skip ? skip : 0) * 300);
+            .limit(300).sort({ createdAt: -1, updatedAt: -1 }).skip((skip ? skip : 0) * 300);
 
         if(!properties) return res.status(404).json({ message: 'not exist error' });   
 
@@ -65,7 +65,7 @@ const getHiddenProperties = async(req, res) => {
 
         const properties = await Property.find({ checked: false, visible: false })
             .select('_id images title description ratings city neighbourhood price discount specific_catagory')
-            .limit(300).sort({ updatedAt: 1, createdAt: 1 }).skip((skip ? skip : 0) * 300);
+            .limit(300).sort({ createdAt: -1, updatedAt: -1 }).skip((skip ? skip : 0) * 300);
 
         if(!properties) return res.status(404).json({ message: 'not exist error' });   
 
@@ -277,7 +277,7 @@ const getUsers = async(req, res) => {
 
         const users = await User.find(getFilterObj()).limit(300)
             .select('_id username email role address email_verified books blocked isBlocked books')
-            .skip((skip ? skip : 0) * 300);
+            .skip((skip ? skip : 0) * 300).sort({ createdAt: -1 });
 
         if(!users) return res.status(403).json({ message: 'not exist error' });
 
