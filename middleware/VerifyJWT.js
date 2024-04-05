@@ -4,8 +4,6 @@ const asyncHandler = require('express-async-handler');
 
 const verifyJWT = asyncHandler( async (req, res, next) => {
 
-    console.log('verifing jwt');
-
     if(!req?.cookies || !req?.cookies?._r_t)
         return res.status(401).json({ message: "Login" });
 

@@ -10,7 +10,7 @@ const cookieParser = require('cookie-parser');
 connectDB();
 
 
-app.use(cors({ origin: 'https://rent-nest-site.vercel.app', credentials: true, allowedHeaders: ['Content-Type', 'Authorization', 'authorization'] }));
+app.use(cors({ origin: process.env.ALLOWED_ORIGIN, credentials: true, allowedHeaders: ['Content-Type', 'Authorization', 'authorization'] }));
 app.use(express.urlencoded({ extended: false })); 
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
@@ -19,7 +19,8 @@ app.use(cookieParser());
 // handle routers
 app.use("/user", require("./Routers/UserRouter.js"));
 app.use("/property", require("./Routers/ProperityRouter.js"));
-// app.use("/admin", require("./Routers/AdminRouter"));
+app.use("/report", require("./Routers/ReportRouter.js"));
+app.use("/admin", require("./Routers/AdminRouter.js"));
 
 
 //handle errors & exceptions, with logger

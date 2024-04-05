@@ -1,29 +1,41 @@
 const express = require('express');
-const { registerUser, sendCodeToEmail, verifyEmail, loginUser, getUserInfo } = require('../Controllers/UserController.js');
+const { registerUser, sendCodeToEmail, verifyEmail, loginUser, getUserInfo, refreshToken, changePassword, logoutUser, deleteAccount, getFavourites, addToFavourite, removeFromFavourite, getBooks, addToBooks, removeFromBooks, editUser, getAllUploadedFiles, getSecretStorageKey } = require('../Controllers/UserController.js');
 const verifyJWT = require('../middleware/VerifyJWT.js');
 const router = express.Router();
 
-
-//router.use((req, res) => {return res.status(400).json({ message: `router reached: ${req.url}`})});
-
 router.post("/register", registerUser);
 
-router.post("/send-code", sendCodeToEmail);
+router.post("/send-code", verifyJWT, sendCodeToEmail);
 
-router.get("/verify-email", verifyEmail);
+router.post("/verify-email", verifyJWT, verifyEmail);
 
 router.post("/login", loginUser);
 
 router.get("/info", verifyJWT, getUserInfo);
 
-// router.post("/refresh-token", refreshToken);
+router.post("/refresh-token", refreshToken);
 
-// router.post("/change-password", changePassword);
+router.post("/change-password", changePassword);
 
-// router.post("/change-password-email-code", changePasswordEmailCode);
+router.post("/logout", verifyJWT, logoutUser);
 
-// router.post("/logout", logoutUser);
+router.delete("/delete", verifyJWT, deleteAccount);
 
-// router.delete("/delete", deleteAccount);
+
+router.get("/favourites", verifyJWT, getFavourites);
+
+router.put("/favourites/:propertyId", verifyJWT, addToFavourite);
+
+router.delete("/favourites/:propertyId", verifyJWT, removeFromFavourite);
+
+
+router.get("/books", verifyJWT, getBooks);
+
+router.put("/books/:propertyId", verifyJWT, addToBooks);
+
+router.delete("/books/:propertyId", verifyJWT, removeFromBooks);
+
+
+router.patch("/edit", verifyJWT, editUser);
 
 module.exports = router;

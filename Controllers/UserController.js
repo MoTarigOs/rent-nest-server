@@ -1,10 +1,11 @@
 const asyncHandler = require('express-async-handler');
-const { isValidPassword, isValidUsername, isValidEmail, generateRandomCode, sendToEmail, isValidText, updateWhiteListAccessToken } = require('../utils/logic.js');
+const { isValidPassword, isValidUsername, isValidEmail, generateRandomCode, sendToEmail, isValidText, updateWhiteListAccessToken, deleteTokens, generateSecretKey } = require('../utils/logic.js');
 const User = require('../Data/UserModel.js');
 const VerCode = require('../Data/VerificationCode.js');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { default: mongoose } = require('mongoose');
+const Property = require('../Data/PropertyModel.js');
 
 const registerUser = async(req, res) => {
 
@@ -14,11 +15,6 @@ const registerUser = async(req, res) => {
             return res.status(400).json({message: "request error"});
 
         const { username, email, password, captchaToken } = req.body;
-
-        console.log('username: ', username, ' email: ', email, ' password: ', password);
-            
-        if(!username || !email || !password)
-            return res.status(402).json({message: "empty field"});
 
         // if(!captchaToken) return res.status(403).send("captcha error");
 
@@ -31,7 +27,7 @@ const registerUser = async(req, res) => {
         if(!isValidPassword(password))
             return res.status(400).json({message: "pass error"});
 
-        if(!isValidUsername(username))
+        if(!isValidText(username))
             return res.status(400).json({message: "name error"});
 
         if(!isValidEmail(email))
@@ -60,37 +56,44 @@ const registerUser = async(req, res) => {
 
 };
 
-const sendCodeToEmail = asyncHandler( async(req, res) => {
+const sendCodeToEmail = asyncHandler(async(req, res) => {
 
-    if(!req?.user) return res.status(404).send("Error in request");
+    console.log('reached');
+
+    if(!req || !req.user) return res.status(400).send("request error");
 
     const { email } = req.user;
+
+    console.log('email: ', isValidEmail(email).toString());
 
     if(!isValidEmail(email)) return res.status(403).send("please enter valid email!");
 
     /* check email availability */
-    const emailAvailable = await User.findOne({ email: email });
+    const emailAvailable = await User.findOne({ email });
 
-    if(!emailAvailable) return res.status(403).json({ message: "please register with the email before verifing it" });
-
-    if(emailAvailable.email_verified === true) return res.status(400).json({ message: 'Your account is already verified' });
+    if(!emailAvailable) return res.status(403).json({ message: "register first error" });
 
     const code = generateRandomCode();
 
     const sendEmailRes = await sendToEmail(code, email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD);
 
-    if(!sendEmailRes || sendEmailRes === false) return res.status(501).send("We encountered an error when sending the code please try again later");
+    if(!sendEmailRes || sendEmailRes === false) return res.status(501).send("server error");
 
-    const verCodeRes = await VerCode.findOneAndUpdate({ email: email }, { code: code, date: Date.now() });
+    const verCodeRes = await VerCode.findOneAndUpdate({ email: email }, { 
+        code: code, 
+        date: Date.now(),
+        attempts: 0
+    });
 
     if(!verCodeRes) {
         const verCodeCreate = await VerCode.create({
             email: email,
             code: code,
-            date: Date.now()
+            date: Date.now(),
+            attempts: 0
         });
 
-        if(!verCodeCreate) return res.status(501).send("Error in our server please try again later");
+        if(!verCodeCreate) return res.status(501).send("Eserver error");
     };
 
     res.status(201).send("Code sent Successfully");
@@ -99,7 +102,7 @@ const sendCodeToEmail = asyncHandler( async(req, res) => {
 
 const verifyEmail = asyncHandler( async(req, res) => {
 
-    if(!req.user || !req?.body) return res.status(403).send("Error in the request");
+    if(!req || !req.user || !req.body) return res.status(403).send("Error in the request");
 
     const { eCode } = req.body;
     
@@ -107,19 +110,34 @@ const verifyEmail = asyncHandler( async(req, res) => {
 
     if(!isValidEmail(email) || !isValidText(eCode) || eCode.length !== 6) return res.status(403).send("Error in the request");
 
-    const verCode = await VerCode.findOne({ email: email, code: eCode });
+    const verCode = await VerCode.findOneAndUpdate({ 
+        email: email, attempts: { $lte: 30 }
+    }, { $inc: { attempts: 1 } });
 
-    if(!verCode || !verCode.date) return res.status(400).send("Send code first");
+    if(!verCode || !verCode.code || !verCode.date || verCode.attempts > 30) 
+        return res.status(403).json({ message: "send code first" });
 
-    if(Date.now() - verCode.date > (60 * 60 * 1000)) return res.status(403).send("It's had been more than hour, please re send code");
+    if(verCode.code.toString() !== eCode) 
+        return res.status(403).json({ message: "not allowed error" });
 
-    const updateVerCode = await VerCode.findOneAndUpdate({ email: email }, { code: null, date: null });
+    if(Date.now() - verCode.date > (60 * 60 * 1000)) {
+        await VerCode.updateOne({ email: email }, { code: null, date: null, attempts: 0 });
+        return res.status(403).json({ message: "ver time end error" });
+    }
+
+    await VerCode.updateOne({ email: email }, {
+        code: null, date: null, attempts: 0
+    });
+
+    const updateVerCode = await VerCode.updateOne({ email: email }, { 
+        code: null, date: null, attempts: 0 
+    });
 
     const updateUser = await User.findOneAndUpdate({ email }, { email_verified: true });
 
-    if(!updateVerCode || !updateUser) return res.status(501).send("Error in our server, re send verification");
+    if(!updateVerCode || !updateUser) return res.status(501).send("server error");
 
-    res.status(200).send("Successfully verified your Email :)");
+    res.status(201).send("Successfully verified your Email");
 
 });
 
@@ -146,7 +164,9 @@ const loginUser = asyncHandler(async (req, res) => {
 
     // if (!captchaRes.data.success) return res.status(403).send("captcha error");    
 
-    const user = await User.findOne({ email: email });
+    let wasBlocked = false;
+
+    let user = await User.findOne({ email: email });
     
     if(!user) return res.status(404).json({message: "user not exist"});
 
@@ -154,22 +174,32 @@ const loginUser = asyncHandler(async (req, res) => {
 
         const elabsed = Date.now() - user.blocked.date_of_block;
 
+        if(!user?.blocked?.date_of_block || !user?.blocked?.block_duration)
+            return res.status(404).json({ message: 'block error' });
+
         if(elabsed <= user.blocked.block_duration) 
-            return res.status(402).json({ message: 'blocked', blockTime: (user.blocked.block_duration - elabsed) });
+            return res.status(403).json({ 
+                message: 'blocked', 
+                blockTime: (user.blocked.block_duration - elabsed),
+                blockReason: user.blocked.reason
+            });
     
         const blockObj = {
             date_of_block: null,
-            block_duration: null
+            block_duration: null,
+            reason: null
         };
 
-        const updateBlockedUser = await User.findOneAndUpdate({ email: email }, { blocked: blockObj, isBlocked: false });
+        const updateBlockedUser = await User.findOneAndUpdate({ email: email }, 
+            { blocked: blockObj, isBlocked: false }, 
+            { new: true });
 
         if(!updateBlockedUser) return res.status(501).send("server error");
 
-        const obj = {blocked_user_id: user._id};
+        user = updateBlockedUser;
+       
+        wasBlocked = true;
 
-        await Admin.updateOne({ blocked_users_ids: obj }, { $pull: { blocked_users_ids: obj } });
-        
     };    
 
     if((await bcrypt.compare(password, user.password))){
@@ -181,7 +211,7 @@ const loginUser = asyncHandler(async (req, res) => {
                 id: user.id
             }
         },process.env.ACCESS_TOKEN_SECRET,
-        { expiresIn: "10d" }
+        { expiresIn: "30d" }
         );
 
         const refreshToken = jwt.sign({
@@ -191,7 +221,7 @@ const loginUser = asyncHandler(async (req, res) => {
                 id: user.id
             }
         },process.env.REFRESH_TOKEN_SECRET,
-        { expiresIn: "30d" }
+        { expiresIn: "90d" }
         );
 
         if(await updateWhiteListAccessToken(user.email, accessToken, refreshToken)){
@@ -202,16 +232,17 @@ const loginUser = asyncHandler(async (req, res) => {
                 httpOnly: true, 
                 sameSite: 'None', 
                 secure: true, 
-                maxAge: (10 * 24 * 60 * 60 * 1000)
+                maxAge: (30 * 24 * 60 * 60 * 1000)
             });
             res.cookie('_r_t', refreshToken, { 
                 path: '/', 
                 httpOnly: true, 
                 sameSite: 'None', 
                 secure: true, 
-                maxAge: (30 * 24 * 60 * 60 * 1000)
+                maxAge: (90 * 24 * 60 * 60 * 1000)
             });
-            res.json(({ message: "login success" }));
+            res.cookie('username-cookie', encodeURIComponent(user.username));
+            res.json(({ message: wasBlocked ? "was blocked" : "login success" }));
         } else {
             res.status(501).json({message: "server error"});
         }
@@ -223,31 +254,476 @@ const loginUser = asyncHandler(async (req, res) => {
 
 const getUserInfo = asyncHandler(async(req, res) => {
 
-    console.log('info reached');
-
     if(!req || !req.user || !req.user.id || !req.user.username) return res.status(401).json({ message: "login" });
 
-    if(!mongoose.Types.ObjectId.isValid(req.user.id)) return res.status(403).json({ message: "login" });
+    const { id, username, email } = req.user;
 
-    const user = await User.findOne({ _id: req.user.id });
+    if(!mongoose.Types.ObjectId.isValid(id) 
+        || !isValidEmail(email) || !isValidText(username)) 
+        return res.status(403).json({ message: "login" });
+
+    const secretKey = generateSecretKey(id, username);
+
+    const secret = await VerCode.findOneAndUpdate({ email }, {
+        storage_key: secretKey, storage_key_date: Date.now(), storage_key_attempts: 0
+    });
+
+    if(!secret) {
+        const createdSecret = await VerCode.create({
+            storage_key: secretKey, storage_key_date: Date.now(), storage_key_attempts: 0
+        });
+        if(!createdSecret) return res.status(500).json({ message: 'try again error' });
+    };
+
+    const user = await User.findOne({ _id: id })
+        .select('_id email_verified username email role address phone favourites books');
 
     res.status(200).json({
-        user_id: user.id, 
+        user_id: user._id, 
         user_username: user.username, 
+        user_email: user.email,
+        address: user.address,
+        phone: user.phone,
+        is_verified: user.email_verified,
         tokenExp: req.token_exp,
-        role: user.role
+        role: user.role,
+        my_books: user.books,
+        my_fav: user.favourites,
+        storage_key: secretKey
     });
 
 });
 
-const refreshToken = asyncHandler(async(req, res) => {});
-const changePassword = asyncHandler(async(req, res) => {});
-const changePasswordEmailCode = asyncHandler(async(req, res) => {});
-const logoutUser = asyncHandler(async(req, res) => {});
-const deleteAccount = asyncHandler(async(req, res) => {});
+const refreshToken = asyncHandler( async (req, res) => {
+
+    const refreshToken = req?.cookies?._r_t ? req.cookies._r_t : null;
+
+    if(!refreshToken) return res.status(400).json({ message: "login error" });
+
+    jwt.verify(
+        refreshToken,
+        process.env.REFRESH_TOKEN_SECRET,
+        asyncHandler( async(err, decoded) => {
+
+            if(err || !decoded?.user?.email) 
+                return res.status(403).json({ message: 'login error' });
+
+            const validToken = await WL.findOne({ email: decoded.user.email });
+
+            if(!validToken || !validToken.refreshToken || validToken.refreshToken !== refreshToken) 
+                return res.status(403).json({ message: "login error" });
+
+            const accessToken = jwt.sign({
+                user: {
+                    username: decoded.user.username,
+                    email: decoded.user.email,
+                    id: decoded.user.id
+                }
+            },process.env.ACCESS_TOKEN_SECRET,
+            { expiresIn: "30d" }
+            );
+    
+            const refreshToken = jwt.sign({
+                user: {
+                    username: decoded.user.username,
+                    email: decoded.user.email,
+                    id: decoded.user.id
+                }
+            },process.env.REFRESH_TOKEN_SECRET,
+            { expiresIn: "90d" }
+            );
+
+            const updateList = await updateWhiteListAccessToken(decoded.user.email, accessToken, refreshToken);
+
+            if(!updateList)
+                return res.status(501).send("server error");
+            
+            res.status(201);
+            res.cookie('_a_t', accessToken, { 
+                path: '/', 
+                httpOnly: true, 
+                sameSite: 'None', 
+                secure: true, 
+                maxAge: (30 * 24 * 60 * 60 * 1000)
+            });
+            res.cookie('_r_t', refreshToken, { 
+                path: '/', 
+                httpOnly: true, 
+                sameSite: 'None', 
+                secure: true, 
+                maxAge: (90 * 24 * 60 * 60 * 1000)
+            });
+            res.json({ message: "refreshed successfully" });
+
+        })
+    )
+});
+
+const changePassword = asyncHandler(async(req, res) => {
+
+    if(!req || !req.body) return res.status(403).send("request error");
+
+    const { email, newPassword, eCode } = req.body;
+
+    if(!isValidEmail(email) 
+        || !isValidText(eCode) || eCode.length !== 6 
+        || !isValidPassword(newPassword)) return res.status(403).send("invalid inputs");
+
+    const verCode = await VerCode.findOneAndUpdate({ 
+        email: email, attempts: { $lte: 30 }
+    }, { $inc: { attempts: 1 } });
+
+    if(!verCode || !verCode.code || !verCode.date || verCode.attempts > 30) 
+        return res.status(403).json({ message: "send code first" });
+
+    if(verCode.code.toString() !== eCode) 
+        return res.status(403).json({ message: "not allowed error" });
+
+    if(Date.now() - verCode.date > (60 * 60 * 1000)) {
+        await VerCode.updateOne({ email: email }, { code: null, date: null, attempts: 0 });
+        return res.status(403).json({ message: "ver time end error" });
+    }
+
+    await VerCode.updateOne({ email: email }, {
+        code: null, date: null, attempts: 0
+    });
+
+    /* hash the password */
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const user = await User.updateOne({ email: email }, { password: hashedPassword });
+
+    if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
+        await VerCode.updateOne({ email: email }, { code: null, date: null });
+        return res.status(501).send("server error");
+    }
+
+    await VerCode.updateOne({ email: email }, { code: null, date: null, attempts: 0 });
+
+    res.status(201).send("Successfully chenged password");
+
+});
+
+const logoutUser = asyncHandler(async(req, res) => {
+
+    if(await deleteTokens(req.user.email) === false)
+        return res.status(400).json({message: "server error"});
+
+    res.clearCookie('_a_t');    
+    res.clearCookie('_r_t');
+    res.clearCookie('csrf_token');
+    res.clearCookie('csrf-token');
+    res.status(201);
+    res.send("Log out suucessfully");   
+
+});
+
+const deleteAccount = asyncHandler(async(req, res) => {
+
+    if(!req || !req.user || !req.query) return res.status(400).json({ message: "request error" });
+
+    const { id, email } = req.user;
+
+    const { eCode } = req.query;
+
+    if(!isValidEmail(email) || !mongoose.Types.ObjectId.isValid(id))
+        return res.status(400).json({ message: 'request error' });
+
+    const verCode = await VerCode.findOneAndUpdate({ 
+        email: email, attempts: { $lte: 30 }
+    }, { $inc: { attempts: 1 } });
+
+    if(!verCode || !verCode.code || !verCode.date || verCode.attempts > 30) 
+        return res.status(403).json({ message: "send code first" });
+
+    if(verCode.code.toString() !== eCode) 
+        return res.status(403).json({ message: "not allowed error" });
+
+    if(Date.now() - verCode.date > (60 * 60 * 1000)) {
+        await VerCode.updateOne({ email: email }, { code: null, date: null, attempts: 0 });
+        return res.status(403).json({ message: "ver time end error" });
+    }
+
+    await VerCode.updateOne({ email: email }, {
+        code: null, date: null, attempts: 0
+    });    
+
+    const findAccount = await User.findOne({ _id: id, email: email });
+
+    if(!findAccount) return res.status(404).json({ message: "not exist error" });
+
+    await WL.deleteOne({ email: email });
+
+    await VerCode.deleteOne({ email: email });
+
+    const deletedAccount = await User.deleteOne({ _id: id });
+
+    if(!deletedAccount || deletedAccount.deleteCount <= 0)
+        return res.status(501).json({ message: "server error" });
+    
+    await Property.deleteMany({ owner_id: id }); 
+
+    res.clearCookie('_a_t');    
+    res.clearCookie('_r_t');
+    res.status(200);
+    res.json({ message: 'success' });   
+
+});
+
+const getFavourites = async(req, res) => {
+
+    try {
+
+        if(!req || !req.user) return res.status(400).json({ message: 'request error' });
+
+        const { id, email } = req.user;
+
+        if(!isValidEmail(email) || !mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'request error' });
+
+        const user = await User.findOne({ _id: id, email }).select('_id favourites');
+
+        if(!user || !user.favourites || user.favourites.length <= 0) 
+            return res.status(404).json({ message: 'not found error' });
+
+        const properties = await Property.find({ _id: user.favourites })
+            .limit(300).sort({ createdAt: -1 })
+            .select('_id images title description ratings city neighbourhood price discount specific_catagory');    
+
+        if(!properties) 
+            return res.status(404).json({ message: 'not found error' });
+
+        return res.status(200).json(properties);    
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: err.message });
+    }
+
+};
+
+const addToFavourite = async(req, res) => {
+
+    try {
+
+        if(!req || !req.user || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { id } = req.user;
+        const { propertyId } = req.params;
+
+        if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
+            return res.status(400).json({ message: 'request error' });
+
+        const user = await User.findOneAndUpdate({ _id: id }, {
+            $addToSet: { favourites: propertyId }
+        }, { new: true }).select('_id favourites');
+
+        if(!user) return res.status(403).json({ message: 'access error' });
+
+        return res.status(201).json(user.favourites);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: err.message });
+    }
+
+};
+
+const removeFromFavourite = async(req, res) => {
+
+    try {
+
+        if(!req || !req.user || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { id } = req.user;
+        const { propertyId } = req.params;
+
+        if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
+            return res.status(400).json({ message: 'request error' });
+
+        const user = await User.findOneAndUpdate({ _id: id }, {
+            $pull: { favourites: propertyId }
+        }, { new: true }).select('_id favourites');
+
+        if(!user) return res.status(403).json({ message: 'access error' });
+
+        return res.status(201).json(user.favourites);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: err.message });
+    }
+
+};
+
+const getBooks = async(req, res) => {
+
+    try {
+
+        if(!req || !req.user) return res.status(400).json({ message: 'request error' });
+
+        const { id, email } = req.user;
+
+        if(!isValidEmail(email) || !mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'request error' });
+
+        const user = await User.findOne({ _id: id, email }).select('_id books');
+
+        if(!user || !user.books || user.books.length <= 0) 
+            return res.status(404).json({ message: 'not found error' });
+
+        let idsArr = [];
+        for (let i = 0; i < user.books.length; i++) {
+            idsArr.push(user.books[i].property_id);
+        };
+
+        const properties = await Property.find({ _id: idsArr })
+            .limit(300).sort({ createdAt: -1 })
+            .select('_id images title description ratings city neighbourhood price discount specific_catagory');    
+
+        if(!properties) return res.status(404).json({ message: 'not found error' });
+
+        let idsToPull = [];    
+        for (let i = 0; i < properties.length; i++) {
+            if(properties[i].owner_id === id){
+                idsToPull.push(properties[i]._id);
+            }
+        };
+
+        if(idsToPull.length > 0){
+            await User.updateOne({ _id: id }, {
+                $pull: { books: { property_id: idsToPull } }
+            });
+        };
+
+        return res.status(200).json(properties);    
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: err.message });
+    }
+
+};
+
+const addToBooks = async(req, res) => {
+
+    try {
+
+        if(!req || !req.user || !req.params || !req.body) return res.status(400).json({ message: 'request error' });
+
+        const { id } = req.user;
+        const { propertyId } = req.params;
+        const { startDate, endDate } = req.body;
+
+        console.log('books: ', startDate);
+
+        if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
+            return res.status(400).json({ message: 'request error' });
+
+        if(startDate && typeof startDate !== 'number') return res.status(400).json({ message: 'date error' });
+
+        if(endDate && typeof endDate !== 'number') return res.status(400).json({ message: 'date error' });    
+
+        const user = await User.findOneAndUpdate({ 
+            _id: id, books: { $elemMatch: { property_id: propertyId } }
+        }, {
+            $set: { "books.$" : { 
+                property_id: propertyId, 
+                date_of_book_start: startDate ? startDate : Date.now(), 
+                date_of_book_end: endDate ? endDate : Date.now() + 86400000
+            }}
+        }, { new: true }).select('_id books');
+
+        let returnBooks = null;
+
+        if(!user) {
+
+            const pushToUser = await User.findOneAndUpdate({ _id: id }, {
+                $push: { books: { property_id: propertyId, date_of_book_start: startDate, date_of_book_end: endDate } }
+            }, { new: true }).select('_id books');
+
+            if(!pushToUser || pushToUser.modifiedCount < 1 || pushToUser.acknowledged === false)
+                return res.status(403).json({ message: 'access error' });
+
+            returnBooks = pushToUser.books;
+
+        } else {
+            returnBooks = user.books;
+        }
+
+        return res.status(201).json(returnBooks);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: err.message });
+    }
+
+};
+
+const removeFromBooks = async(req, res) => {
+
+    try {
+
+        if(!req || !req.user || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { id } = req.user;
+        const { propertyId } = req.params;
+
+        if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
+            return res.status(400).json({ message: 'request error' });
+
+        const user = await User.findOneAndUpdate({ _id: id }, {
+            $pull: { books: { property_id: propertyId } }
+        }, { new: true }).select('_id books');
+
+        if(!user) return res.status(403).json({ message: 'access error' });
+
+        return res.status(201).json(user.books);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: err.message });
+    }
+
+};
+
+const editUser = async(req, res) => {
+
+    try {
+
+        if(!req || !req.user || !req.body) return res.status(400).json({ message: 'request error' });
+
+        const { id, username } = req.user;
+
+        const { updateUsername, updateAddress, updatePhone } = req.body;
+
+        if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'request error' });
+        
+        if(updateUsername && !isValidText(updateUsername)) return res.status(400).json({ message: 'username error' });
+
+        if(updateAddress && !isValidText(updateAddress)) return res.status(400).json({ message: 'address error' });
+
+        if(updatePhone && !isValidText(updatePhone)) return res.status(400).json({ message: 'phone error' });
+    
+        const user = await User.findOneAndUpdate({ _id: id }, {
+            username: updateUsername ? updateUsername : username,
+            address: updateAddress,
+            phone: updatePhone
+        });
+
+        if(!user) return res.status(400).json({ message: 'access error' });
+        
+        return res.status(201).json({ message: 'success' });
+    
+    } catch (err) {
+        console.log(err.message);
+        return res.status(501).json({ message: err.message });
+    }
+
+};
 
 module.exports = {
     registerUser, sendCodeToEmail, verifyEmail, loginUser,
-    getUserInfo, refreshToken, changePassword, changePasswordEmailCode,
-    logoutUser, deleteAccount
+    getUserInfo, refreshToken, changePassword,
+    logoutUser, deleteAccount, getFavourites,
+    addToFavourite, removeFromFavourite,
+    getBooks, addToBooks, removeFromBooks, editUser
 };
