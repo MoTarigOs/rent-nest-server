@@ -1117,7 +1117,6 @@ const getOnlyEnglishAndNum = (text) => {
       newText += text[i]
     }
   }
-  console.log('newText: ', newText);
   return newText;
 };
 

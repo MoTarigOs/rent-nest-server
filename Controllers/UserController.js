@@ -270,7 +270,7 @@ const getUserInfo = asyncHandler(async(req, res) => {
 
     if(!secret) {
         const createdSecret = await VerCode.create({
-            storage_key: secretKey, storage_key_date: Date.now(), storage_key_attempts: 0
+            email, storage_key: secretKey, storage_key_date: Date.now(), storage_key_attempts: 0
         });
         if(!createdSecret) return res.status(500).json({ message: 'try again error' });
     };
