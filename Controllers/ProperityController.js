@@ -184,37 +184,43 @@ const createProperty = async(req, res) => {
         if(!isValidText(city) || !citiesArray.find(i => i.value === city)) return res.status(400).json({ message: 'city error' });
 
         if(neighbourhood && !isValidText(neighbourhood)) return res.status(400).json({ message: 'neighbourhood error' });
-
-        if(map_coordinates && (map_coordinates.length > 2 || !isValidPoint(map_coordinates[0], map_coordinates[1]))) return res.status(400).json({ message: 'coordinates error' });
         
+        // if(map_coordinates && (map_coordinates.length > 2 || !isValidPoint(map_coordinates[0], map_coordinates[1]))) return res.status(400).json({ message: 'coordinates error' });
+
         if(!isValidNumber(price)) return res.status(400).json({ message: 'price error' });
-       
+
         if(details && !isValidDetails(details)) return res.status(400).json({ message: 'details error' });
 
         if(terms_and_conditions && !isValidTerms(terms_and_conditions)) return res.status(400).json({ message: 'details error' });
 
         if(area && !isValidNumber(Number(area))) return res.status(400).json({ message: 'area error' });
 
-        if(contacts && !isValidContact(contacts)) return res.status(400).json({ message: 'contacst error' });
+        if(contacts && !isValidContacts(contacts)) return res.status(400).json({ message: 'contacts error' });
 
-        const property = await Property.create({
-            owner_id: id,
-            type_is_vehicle,
-            specific_catagory,
-            title,
-            description,
-            city,
-            neighbourhood,
-            map_coordinates,
-            price,
-            images: [],
-            videos: [],
-            reviews: [],
-            details,
-            terms_and_conditions,
-            area,
-            contacts
-        });
+        const getObj = () => {
+            const obj = {
+                owner_id: id,
+                type_is_vehicle,
+                specific_catagory,
+                title,
+                description,
+                city,
+                neighbourhood,
+                price,
+                images: [],
+                videos: [],
+                reviews: [],
+                details,
+                terms_and_conditions,
+                area,
+                contacts
+            };
+            if(isValidPoint(map_coordinates[0], map_coordinates[1])) obj.map_coordinates = map_coordinates;
+            return obj;
+
+        }
+        
+        const property = await Property.create(getObj());
 
         if(!property) return res.status(500).json({ message: 'server error' });
 

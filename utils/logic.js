@@ -516,6 +516,8 @@ const JordanBoundryPoints = [
 
 const isValidPoint = (myLong, myLat) => {
 
+    if(!myLong || !myLat) return false;
+
     const point = {
       x: myLong, y: myLat
     };
