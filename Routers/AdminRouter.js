@@ -1,11 +1,17 @@
 const express = require('express');
 const verifyAdmin = require('../middleware/VerifyIsAdmin.js');
 const verifyJWT = require('../middleware/VerifyJWT.js');
-const { getReports, getPropertiesForCheck, passProperty, deletePropertyAdmin, getHiddenProperties, hidePropertyAdmin, showPropertyAdmin, deleteReviewAdmin, getUsers, getUserByEmail, blockUser, unBlockUser, deleteAccountAdmin, getPropertiesByFilesDetails, deleteReviewsAdmin, promoteToAdmin, demoteFromAdmin } = require('../Controllers/AdminController.js');
+const { getReports, getPropertiesForCheck, passProperty, deletePropertyAdmin, getHiddenProperties, hidePropertyAdmin, showPropertyAdmin, deleteReviewAdmin, getUsers, getUserByEmail, blockUser, unBlockUser, deleteAccountAdmin, getPropertiesByFilesDetails, deleteReviewsAdmin, promoteToAdmin, demoteFromAdmin, getErrorsOccured, deleteReport, deleteErrorOccured, rejectProperty } = require('../Controllers/AdminController.js');
 const verifyOwner = require('../middleware/VerifyIsOwner.js');
 const router = express.Router();
 
 router.get('/reports', verifyJWT, verifyAdmin, getReports);
+
+router.delete('/reports/:propertyId', verifyJWT, verifyAdmin, deleteReport);
+
+router.get('/errors', verifyJWT, verifyAdmin, getErrorsOccured);
+
+router.delete('/errors/:errorId', verifyJWT, verifyAdmin, deleteErrorOccured);
 
 router.get('/check-properties', verifyJWT, verifyAdmin, getPropertiesForCheck);
 
@@ -14,6 +20,8 @@ router.get('/hidden-properties', verifyJWT, verifyAdmin, getHiddenProperties);
 router.get('/properties-by-files', verifyJWT, verifyAdmin, getPropertiesByFilesDetails);
 
 router.put('/pass-property/:propertyId', verifyJWT, verifyAdmin, passProperty);
+
+router.put('/reject-property/:propertyId', verifyJWT, verifyAdmin, rejectProperty);
 
 router.delete('/delete-property/:propertyId', verifyJWT, verifyAdmin, deletePropertyAdmin);
 

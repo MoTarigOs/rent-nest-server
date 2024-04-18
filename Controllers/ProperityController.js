@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const Property = require('../Data/PropertyModel.js');
 const Report = require('../Data/ReportModel.js');
-const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat } = require('../utils/logic.js');
+const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts } = require('../utils/logic.js');
 const sortLatDistance = 0.5;
 
 const getProperties = async(req, res) => {
@@ -17,7 +17,7 @@ const getProperties = async(req, res) => {
 
         const id = req?.user?.id;
 
-        if(city && !citiesArray.find(i => i.value.toLowerCase() === city.toLowerCase())) return res.status(400).json({ message: 'city error' });
+        if(city && !citiesArray.find(i => i.value.replaceAll(' ', '-') === city)) return res.status(400).json({ message: 'city error' });
         
         if(type_is_vehicle && type_is_vehicle !== 'false' && type_is_vehicle !== 'true') return res.status(400).json({ message: 'type_is_vehicle error' });
 
@@ -46,6 +46,8 @@ const getProperties = async(req, res) => {
 
             obj.checked = true;
 
+            obj.isRejected = false;
+
             obj.is_able_to_book = true;
 
             if(city?.length > 0) obj.city = city;
@@ -62,13 +64,13 @@ const getProperties = async(req, res) => {
             if(min_rate)
                 secondObj = { ...obj, 'ratings.val': { $gte: Number(min_rate) } };
 
-            // if(id && mongoose.Types.ObjectId.isValid(id)) {
-            //     if(secondObj){
-            //         secondObj = { ...secondObj, owner_id: { $ne: id } };
-            //     } else {
-            //         secondObj = { ...obj, owner_id: { $ne: id } };
-            //     }
-            // }    
+            if(id && mongoose.Types.ObjectId.isValid(id)) {
+                if(secondObj){
+                    secondObj = { ...secondObj, owner_id: { $ne: id } };
+                } else {
+                    secondObj = { ...obj, owner_id: { $ne: id } };
+                }
+            }    
             
             if(text) {
                 if(secondObj){
@@ -162,17 +164,14 @@ const createProperty = async(req, res) => {
 
     try {
 
-        console.log();
-
         if(!req || !req.user || !req.body) return res.status(400).json({ message: 'request error' });
         
         const { id } = req.user;
         const { 
             type_is_vehicle, specific_catagory, title, description, city, 
-            neighbourhood, map_coordinates, price, details, terms_and_conditions
+            neighbourhood, map_coordinates, price, details, 
+            terms_and_conditions, area, contacts
         } = req.body;
-
-        console.log('map_coordinates: ', map_coordinates, ' neigh: ', neighbourhood);
 
         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'login error' });
 
@@ -183,24 +182,20 @@ const createProperty = async(req, res) => {
         if(!isValidText(description, 25)) return res.status(400).json({ message: 'desc error' });
         
         if(!isValidText(city) || !citiesArray.find(i => i.value === city)) return res.status(400).json({ message: 'city error' });
-        
-        console.log('reached0');
 
         if(neighbourhood && !isValidText(neighbourhood)) return res.status(400).json({ message: 'neighbourhood error' });
-        
-        console.log('reached1');
 
         if(map_coordinates && (map_coordinates.length > 2 || !isValidPoint(map_coordinates[0], map_coordinates[1]))) return res.status(400).json({ message: 'coordinates error' });
         
         if(!isValidNumber(price)) return res.status(400).json({ message: 'price error' });
        
         if(details && !isValidDetails(details)) return res.status(400).json({ message: 'details error' });
-        
-        console.log('reached2');
 
         if(terms_and_conditions && !isValidTerms(terms_and_conditions)) return res.status(400).json({ message: 'details error' });
-        
-        console.log('reached3');
+
+        if(area && !isValidNumber(Number(area))) return res.status(400).json({ message: 'area error' });
+
+        if(contacts && !isValidContact(contacts)) return res.status(400).json({ message: 'contacst error' });
 
         const property = await Property.create({
             owner_id: id,
@@ -216,7 +211,9 @@ const createProperty = async(req, res) => {
             videos: [],
             reviews: [],
             details,
-            terms_and_conditions
+            terms_and_conditions,
+            area,
+            contacts
         });
 
         if(!property) return res.status(500).json({ message: 'server error' });
@@ -236,8 +233,6 @@ const getProperty = async(req, res) => {
 
     try {
 
-        console.log(req.url);
-
         if(!req || !req.query) return res.status(400).json({ message: 'request error' });
 
         const { propertyId } = req.query;
@@ -252,7 +247,7 @@ const getProperty = async(req, res) => {
 
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: 'unknown error' });
+        return res.status(500).json({ message: 'unknown error' });
     }
 
 };
@@ -268,7 +263,7 @@ const getOwnerProperty = async(req, res) => {
         if(!mongoose.Types.ObjectId.isValid(userId)) return res.status(400).json({ message: 'request error' });
 
         const properties = await Property.find({ owner_id: userId }).limit(300)
-            .select('_id images title checked visible description ratings city neighbourhood price discount')
+            .select('_id images title checked visible isRejected description ratings city neighbourhood price discount')
             .sort({ createdAt: -1 });
 
         if(!properties || properties.length <= 0) return res.status(400).json({ message: 'not exist error' });
@@ -308,7 +303,7 @@ const addReview = async(req, res) => {
                 username: username,
                 text, user_rating: Number(user_rating).toFixed(2)
             }}
-        }).select('reviews ratings');
+        }).select('_id reviews ratings');
 
         if(!property){
 
@@ -318,22 +313,23 @@ const addReview = async(req, res) => {
                     username: username,
                     text, user_rating: Number(user_rating).toFixed(2)
                 }}
-            }).select('_id ratings');
+            }).select('_id reviews ratings');
 
             if(!inserted) return res.status(403).json({ message: 'access error' });
 
-            updatePropertyRating(propertyId, inserted.ratings, user_rating, true);    
+            const updatedInsertedProp = await updatePropertyRating(propertyId, inserted.ratings, user_rating, true);    
         
+            return res.status(201).json(updatedInsertedProp);
+
         } else {
-            updatePropertyRating(
+            const updatedProp = await updatePropertyRating(
                 propertyId, 
                 property.ratings, 
                 user_rating, false, 
                 property.reviews.find(i => i?.writer_id?.toString() === id)
             );
-        }
-
-        return res.status(201).json({ message: 'success' });            
+            return res.status(201).json(updatedProp);
+        }         
         
     } catch (err) {
         console.log(err);
@@ -350,7 +346,8 @@ const editProperty = async(req, res) => {
         const { id } = req.user;
         const { propertyId } = req.params;
         const { 
-            title, description, price, details, terms_and_conditions
+            title, description, price, details, 
+            terms_and_conditions, contacts, discount
         } = req.body;
 
         if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
@@ -366,13 +363,24 @@ const editProperty = async(req, res) => {
         
         if(terms_and_conditions && !isValidTerms(terms_and_conditions)) return res.status(400).json({ message: 'details error' });
 
+        console.log('jophnyyy: ', contacts, isValidContacts(contacts));
+
+        if(contacts && !isValidContacts(contacts)) return res.status(400).json({ message: 'contacts error' });
+
+        if(discount?.percentage && (!isValidNumber(discount.percentage, 100, 0) || !isValidNumber(discount.num_of_days_for_discount, 2000, 0)))
+            return res.status(400).json({ message: 'discount error' });
+
         const property = await Property.findOneAndUpdate({ _id: propertyId, owner_id: id }, {
             title,
             description,
             price,
             details,
             terms_and_conditions,
-            checked: false
+            checked: false,
+            isRejected: false,
+            reject_reasons: [],
+            contacts,
+            discount
         }, { new: true });
 
         if(!property) return res.status(403).json({ message: 'access error' });
@@ -381,7 +389,7 @@ const editProperty = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(500).json({ message: err.message });
     }
 
 };
@@ -507,7 +515,6 @@ const setBookedDays = async(req, res) => {
         if(!mongoose.Types.ObjectId.isValid(id) 
             || !mongoose.Types.ObjectId.isValid(propertyId)
             || !Array.isArray(bookedDays)
-            || !bookedDays?.length > 0 
             || bookedDays.length > 1200)
             return res.status(400).json({ message: 'request error' });
 

@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const ReportSchema = mongoose.Schema({
     reported_id: {
         type: mongoose.Types.ObjectId,
-        required: [true, 'request error'],
+        required: [true, 'require report error'],
         unique: [true, 'already exist']
     },
     review_writers_ids: [{

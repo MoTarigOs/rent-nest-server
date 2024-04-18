@@ -1,5 +1,5 @@
 const express = require('express');
-const { registerUser, sendCodeToEmail, verifyEmail, loginUser, getUserInfo, refreshToken, changePassword, logoutUser, deleteAccount, getFavourites, addToFavourite, removeFromFavourite, getBooks, addToBooks, removeFromBooks, editUser, getAllUploadedFiles, getSecretStorageKey } = require('../Controllers/UserController.js');
+const { registerUser, sendCodeToEmail, verifyEmail, loginUser, getUserInfo, refreshToken, changePassword, logoutUser, deleteAccount, getFavourites, addToFavourite, removeFromFavourite, getBooks, addToBooks, removeFromBooks, editUser, getAllUploadedFiles, getSecretStorageKey, sendCodeToEmailSignPage, verifyEmailSignPage, changePasswordSignPage } = require('../Controllers/UserController.js');
 const verifyJWT = require('../middleware/VerifyJWT.js');
 const router = express.Router();
 
@@ -7,7 +7,11 @@ router.post("/register", registerUser);
 
 router.post("/send-code", verifyJWT, sendCodeToEmail);
 
+router.post("/send-code-sign-page", sendCodeToEmailSignPage);
+
 router.post("/verify-email", verifyJWT, verifyEmail);
+
+router.post("/change-password-sign-page", changePasswordSignPage);
 
 router.post("/login", loginUser);
 

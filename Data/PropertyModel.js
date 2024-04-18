@@ -109,6 +109,7 @@ const propertyShema = mongoose.Schema({
         rooms: { type: [{ type: String, maxLength: 500 }], default: [], validate: [arrayLimitSchema, 'array limit error'] },
         vehicle_specifications: { type: [{ type: String, maxLength: 500 }], default: [], validate: [arrayLimitSchema, 'array limit error'] },
         vehicle_addons: { type: [{ type: String, maxLength: 500 }], default: [], validate: [arrayLimitSchema, 'array limit error'] },
+        near_places: { type: [{ type: String, maxLength: 500 }], default: [], validate: [arrayLimitSchema, 'array limit error'] },
     },
     terms_and_conditions: { 
         type: [{
@@ -136,8 +137,8 @@ const propertyShema = mongoose.Schema({
         type: Number, max: 10000000000
     },
     discount: {
-        num_of_days_for_discount: { type: Number, max: 1000, default: 0 },
-        percentage: { type: Number, max: 100, default: 0 },
+        num_of_days_for_discount: { type: Number, max: 2000, default: 0 },
+        percentage: { type: Number, max: 100, min: 0, default: 0 },
     },
     booked_days: {
         type: [{ type: String, maxLength: 20, validate: [isValidBookDateFormat, 'book day error'] }],
@@ -155,6 +156,23 @@ const propertyShema = mongoose.Schema({
     checked: {
         type: Boolean,
         default: false
+    },
+    isRejected: {
+        type: Boolean,
+        default: false
+    }, 
+    reject_reasons: {
+        type: [String],
+        default: undefined,
+        validate: [arrayLimitSchema, 'array limit error']
+    },
+    contacts: {
+        type: [{
+            platform: String,
+            val: String
+        }],
+        default: undefined,
+        validate: [arrayLimitSchema, 'array limit error']
     }
 }, { timestamps: true }).index({ 
     'title' : 'text', 

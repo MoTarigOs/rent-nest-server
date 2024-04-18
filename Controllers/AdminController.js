@@ -1,6 +1,7 @@
 const Report = require('../Data/ReportModel.js');
 const Property = require('../Data/PropertyModel.js');
 const User = require('../Data/UserModel.js');
+const ErrorModel = require('../Data/ErrorModel.js');
 const VerCode = require('../Data/VerificationCode.js');
 const WL = require('../Data/WhiteList.js');
 const mongoose = require('mongoose');
@@ -31,7 +32,77 @@ const getReports = async(req, res) => {
 
     } catch (err) {
         console.log(err.message);
-        return res.status(501).json({ message: 'server error' });
+        return res.status(500).json({ message: 'server error' });
+    }
+
+};
+
+const deleteReport = async(req, res) => {
+
+    try {
+
+        const propertyId = req?.params?.propertyId;
+
+        if(!mongoose.Types.ObjectId.isValid(propertyId))
+            return res.status(400).json({ message: 'request error' });
+
+        const deletedReport = await Report.deleteOne({ reported_id: propertyId });
+        
+        if(!deletedReport || deletedReport.deleteCount <= 0)
+            return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(201).json({ message: 'success' });
+        
+    } catch (err) {
+        console.log(err.message);
+        return res.status(500).json({ message: 'server error' });
+    }
+
+};
+
+const getErrorsOccured = async(req, res) => {
+
+    try {
+
+        if(!req) return res.status(400).json({ message: 'request error' });
+
+        const skip = req?.body?.skip;
+
+        const is_storage = req?.query?.is_storage;
+        
+        const errors = await ErrorModel.find(is_storage ? { isStorageError: is_storage === 'true' } : null).sort({ createdAt: 1 })
+            .limit(300).skip((skip ? skip : 0) * 300);
+
+        if(!errors) return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(200).json(errors);
+
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+
+};
+
+const deleteErrorOccured = async(req, res) => {
+
+    try {
+
+        const errorId = req?.params?.errorId;
+
+        if(!mongoose.Types.ObjectId.isValid(errorId))
+            return res.status(400).json({ message: 'request error' });
+
+        const deletedError = await ErrorModel.deleteOne({ _id: errorId });
+        
+        if(!deletedError || deletedError.deleteCount <= 0)
+            return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(201).json({ message: 'success' });
+        
+    } catch (err) {
+        console.log(err.message);
+        return res.status(500).json({ message: 'server error' });
     }
 
 };
@@ -114,7 +185,40 @@ const passProperty = async(req, res) => {
         if(!mongoose.Types.ObjectId.isValid(propertyId)) return res.status(400).json({ message: 'request error' });
 
         const property = await Property.findOneAndUpdate({ _id: propertyId }, {
-            checked: true
+            checked: true, isRejected: false, reject_reasons: []
+        }, { new: true });
+
+        if(!property) return res.status(403).json({ message: 'access error' });
+
+        return res.status(201).json(property);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: 'server error' });
+    }
+
+};
+
+const rejectProperty = async(req, res) => {
+
+    try {
+
+        if(!req || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { propertyId } = req.params;
+
+        const reasons = req?.body?.reasons;
+
+        if(!mongoose.Types.ObjectId.isValid(propertyId) || !reasons?.length > 0) 
+            return res.status(400).json({ message: 'request error' });
+
+        for (let i = 0; i < reasons.length; i++) {
+            if(!isValidText(reasons[i])) return res.status(403).json({ message: 'reason error' });
+        }
+
+        const property = await Property.findOneAndUpdate({ _id: propertyId }, {
+            isRejected: true,
+            reject_reasons: reasons
         }, { new: true });
 
         if(!property) return res.status(403).json({ message: 'access error' });
@@ -323,8 +427,6 @@ const blockUser = async(req, res) => {
         const { reason, blockDuration } = req.body;
 
         const { userId } = req.params;
-
-        console.log(reason, Number(blockDuration));
 
         if(!isValidText(reason) || !isValidNumber(Number(blockDuration)) || blockDuration <= 0) 
             return res.status(400).json({ message: "input error" });
@@ -555,9 +657,13 @@ const demoteFromAdmin = async(req, res) => {
 
 module.exports = {
     getReports,
+    deleteReport,
+    getErrorsOccured,
+    deleteErrorOccured,
     getPropertiesForCheck,
     getHiddenProperties,
     passProperty,
+    rejectProperty,
     deletePropertyAdmin,
     hidePropertyAdmin,
     showPropertyAdmin,

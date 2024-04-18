@@ -100,6 +100,48 @@ const sendCodeToEmail = asyncHandler(async(req, res) => {
 
 });
 
+const sendCodeToEmailSignPage = asyncHandler(async(req, res) => {
+
+    if(!req || !req.query) return res.status(400).send("request error");
+
+    const { email } = req.query;
+
+    console.log('email: ', isValidEmail(email).toString());
+
+    if(!isValidEmail(email)) return res.status(403).send("please enter valid email!");
+
+    /* check email availability */
+    const emailAvailable = await User.findOne({ email });
+
+    if(!emailAvailable) return res.status(403).json({ message: "register first error" });
+
+    const code = generateRandomCode();
+
+    const sendEmailRes = await sendToEmail(code, email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD);
+
+    if(!sendEmailRes || sendEmailRes === false) return res.status(501).send("server error");
+
+    const verCodeRes = await VerCode.findOneAndUpdate({ email: email }, { 
+        code: code, 
+        date: Date.now(),
+        attempts: 0
+    });
+
+    if(!verCodeRes) {
+        const verCodeCreate = await VerCode.create({
+            email: email,
+            code: code,
+            date: Date.now(),
+            attempts: 0
+        });
+
+        if(!verCodeCreate) return res.status(501).send("Eserver error");
+    };
+
+    res.status(201).send("Code sent Successfully");
+
+});
+
 const verifyEmail = asyncHandler( async(req, res) => {
 
     if(!req || !req.user || !req.body) return res.status(403).send("Error in the request");
@@ -141,14 +183,55 @@ const verifyEmail = asyncHandler( async(req, res) => {
 
 });
 
+const changePasswordSignPage = asyncHandler( async(req, res) => {
+
+    if(!req || !req.body) return res.status(403).send("Error in the request");
+
+    const { eCode, newPassword, email } = req.body;
+    
+    if(!isValidEmail(email) || !isValidText(eCode) || eCode.length !== 6 || !isValidPassword(newPassword)) return res.status(403).send("Error in the request");
+
+    const verCode = await VerCode.findOneAndUpdate({ 
+        email: email, attempts: { $lte: 30 }
+    }, { $inc: { attempts: 1 } });
+
+    if(!verCode || !verCode.code || !verCode.date || verCode.attempts > 30) 
+        return res.status(403).json({ message: "send code first" });
+
+    if(verCode.code.toString() !== eCode) 
+        return res.status(403).json({ message: "not allowed error" });
+
+    if(Date.now() - verCode.date > (60 * 60 * 1000)) {
+        await VerCode.updateOne({ email: email }, { code: null, date: null, attempts: 0 });
+        return res.status(403).json({ message: "ver time end error" });
+    }
+
+    await VerCode.updateOne({ email: email }, {
+        code: null, date: null, attempts: 0
+    });
+
+    const updateVerCode = await VerCode.updateOne({ email: email }, { 
+        code: null, date: null, attempts: 0 
+    });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const user = await User.updateOne({ email: email }, { password: hashedPassword });
+
+    if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
+        return res.status(500).send("server error");
+    }
+
+    res.status(201).send("Successfully verified your Email");
+
+});
+
 const loginUser = asyncHandler(async (req, res) => {
 
     if(req?.body === null || req?.body === undefined)
         return res.status(404).json({message: "request error"});
 
     const { email, password, captchaToken } = req.body;
-
-    console.log('email: ', email, ' password: ', password);
     
     if(!email || !password) return res.status(400).json({message: "empty field"});
 
@@ -394,11 +477,8 @@ const changePassword = asyncHandler(async(req, res) => {
     const user = await User.updateOne({ email: email }, { password: hashedPassword });
 
     if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
-        await VerCode.updateOne({ email: email }, { code: null, date: null });
         return res.status(501).send("server error");
     }
-
-    await VerCode.updateOne({ email: email }, { code: null, date: null, attempts: 0 });
 
     res.status(201).send("Successfully chenged password");
 
@@ -721,7 +801,8 @@ const editUser = async(req, res) => {
 };
 
 module.exports = {
-    registerUser, sendCodeToEmail, verifyEmail, loginUser,
+    registerUser, sendCodeToEmail, sendCodeToEmailSignPage, 
+    verifyEmail, changePasswordSignPage, loginUser,
     getUserInfo, refreshToken, changePassword,
     logoutUser, deleteAccount, getFavourites,
     addToFavourite, removeFromFavourite,

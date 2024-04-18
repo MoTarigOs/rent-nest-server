@@ -16,341 +16,103 @@ const allowedSpecificCatagory = [
 
 const citiesArray = [
   {
-    city_id: 0,
-    value: 'Amman',       
-    arabicName: 'عمان',   
-    long: 35.9651,        
-    lat: 31.9053
-  },
-  {
-    city_id: 1,
-    value: 'Zarqa',       
-    arabicName: 'الزرقاء',
-    long: 36.0877,
-    lat: 32.0722
-  },
-  {
-    city_id: 2,
-    value: 'Irbid',
-    arabicName: 'اربد',
-    long: 35.8575,
-    lat: 32.5556
-  },
-  {
-    city_id: 3,
-    value: 'Russeifa',
-    arabicName: 'الرصيفة',
-    long: 35.8575,
-    lat: 32.5556
-  },
-  {
-    city_id: 4,
-    value: 'Sahab',
-    arabicName: 'السحاب',
-    long: 36.0075,
-    lat: 31.8787
-  },
-  {
-    city_id: 5,
-    value: 'Ar-Ramtha',
-    arabicName: 'الرمثا',
-    long: 36.0042,
-    lat: 32.5594
-  },
-  {
-    city_id: 6,
-    value: 'Aqaba',
-    arabicName: 'العقبة',
-    long: 35.0075,
-    lat: 29.5269
-  },
-  {
-    city_id: 7,
-    value: 'Mafraq',
-    arabicName: 'المفرق',
-    long: 36.2053,
-    lat: 32.3404
-  },
-  {
-    city_id: 8,
-    value: 'Madaba',
-    arabicName: 'مادبا',
-    long: 35.8,
-    lat: 31.7167
-  },
-  {
-    city_id: 9,
-    value: 'As-Salt',
-    arabicName: 'السلط',
-    long: 35.7273,
-    lat: 32.0392
-  },
-  {
-    city_id: 10,
-    value: 'Al-Jizah',
-    arabicName: 'الجيزة',
-    long: 35.9333,
-    lat: 31.95
-  },
-  {
-    city_id: 11,
-    value: 'Ain-Al-Basha',
-    arabicName: 'عين الباشا',
-    long: 35.75,
-    lat: 32
-  },
-  {
-    city_id: 12,
-    value: 'Aydoun',
-    arabicName: 'عيدون',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 13,
-    value: 'Ad-Dhlail',
-    arabicName: 'الضليل',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 14,
-    value: 'Jerash',
-    arabicName: 'جرش',
-    long: 35.8961,
-    lat: 32.2775
-  },
-  {
-    city_id: 15,
-    value: 'As-Sarih',
-    arabicName: 'السارحة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 16,
-    value: 'Al-Hashimiyah',
-    arabicName: 'الهاشمية',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 17,
-    value: 'Maan',
-    arabicName: 'معان',
-    long: 35.7283,
-    lat: 30.192
-  },
-  {
-    city_id: 18,
-    value: 'Beit-Ras',
-    arabicName: 'بيت راس',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 19,
-    value: 'Al-Husn',
-    arabicName: 'الحصن',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 20,
-    value: 'At-Turrah',
-    arabicName: 'الطرة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 21,
-    value: 'Naour',
-    arabicName: 'ناعور',
-    long: 35.75,
-    lat: 31.95
-  },
-  {
-    city_id: 22,
-    value: 'Karak',
-    arabicName: 'الكرك',
-    long: 35.7047,
-    lat: 31.1837
-  },
-  {
-    city_id: 23,
-    value: 'Kufranjah',
-    arabicName: 'كفرنجة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 24,
-    value: 'Der-Abi-Saeed',
-    arabicName: 'دير أبي سعيد',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 25,
-    value: 'Noayymeh',
-    arabicName: 'نوعيمة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 26,
-    value: 'Ash-Shajarah',
-    arabicName: 'الشجرة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 27,
-    value: 'Tafilah',
-    arabicName: 'الطفيلة',
-    long: 35.6,
-    lat: 30.8333
-  },
-  {
-    city_id: 28,
-    value: 'Mutah',
-    arabicName: 'المؤتة',
-    long: 35.7,
-    lat: 30.1667
-  },
-  {
-    city_id: 29,
-    value: 'Ghor-es-Safi',
-    arabicName: 'غور الصافي',
-    long: 35.7,
-    lat: 31.1833
-  },
-  {
-    city_id: 30,
-    value: 'Anjara',
-    arabicName: 'عنجرة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 31,
-    value: 'Al-Mashar’e',
-    arabicName: 'المشارع',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 32,
-    value: 'Huwwarah',
-    arabicName: 'حوارة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 33,
-    value: 'Kufr-Yuba',
-    arabicName: 'كفر يوبا',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 34,
-    value: 'Kuraymah',
-    arabicName: 'كريمة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 35,
-    value: 'At-Tayyibah',
-    arabicName: 'الطيبة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 36,
-    value: 'Al-Mazār-Ash-Shamālī ',
-    arabicName: 'المزار الشمالي',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 37,
-    value: 'As-Sakhnah',
-    arabicName: 'السخنة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 38,
-    value: 'Al-Khālidīyah-Al-Jadīdah ',
-    arabicName: 'الخالدية الجديدة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 39,
-    value: 'Bashrah',
-    arabicName: 'بشرى',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 40,
-    value: 'Umm-As-Summaq-Al-Janūbī',
-    arabicName: 'أم السماق الجنوبي',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 41,
-    value: 'Judeiteh',
-    arabicName: 'جديتة',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 42,
-    value: 'Al-Fuhays',
-    arabicName: 'الفحيص',
-    long: 35.75,
-    lat: 32.3333
-  },
-  {
-    city_id: 43,
-    value: 'Al-Mazār-Al-Janūbī',
-    arabicName: 'المزار الجنوبي',
-    long: 35.8333,
-    lat: 32.5
-  },
-  {
-    city_id: 44,
-    value: 'Shuna-Ash-Shamaliyeh ',
-    arabicName: 'شونة الشمالية',
-    long: 35.8575,
-    lat: 32.5556
-  },
-  {
-    city_id: 45,
-    value: 'Kafr-Al-Ma’',
-    arabicName: 'كفر الماء',
-    long: 35.7273,
-    lat: 32.3329
-  },
-  {
-    city_id: 46,
-    value: 'Mahis',
-    arabicName: 'محيس',
-    long: 35.7273,
-    lat: 30.1976
-  },    
-  {
-    city_id: 100,
-    value: 'other',
-    arabicName: 'اخرى',
-    long: null,
-    lat: null
-  }
+      city_id: 0,
+      value: 'Amman',       
+      arabicName: 'عمان',   
+      long: 35.9651,        
+      lat: 31.9053
+    },
+    {
+      city_id: 1,
+      value: 'Jerash',
+      arabicName: 'جرش',
+      long: 35.8961,
+      lat: 32.2775
+    },
+    {
+      city_id: 2,
+      value: 'Ajloun',
+      arabicName: 'عجلون',
+      long: 35.7517,
+      lat: 32.3326
+    },
+    {
+      city_id: 3,
+      value: 'Dead Sea & Jordan Valley',
+      arabicName: 'البحر الميت و ألأغوار',
+      long: 35.5699,
+      lat: 32.3172
+    },
+    {
+      city_id: 4,
+      value: 'Wadi Rum and Petra',
+      arabicName: 'وادي رم و البتراء',
+      long: 35.4444,
+      lat: 30.3285
+    },
+    {
+      city_id: 5,
+      value: 'Main',
+      arabicName: 'ماعين',
+      long: 35.7331,
+      lat: 31.6803
+    },
+    {
+      city_id: 6,
+      value: 'As-Salt',
+      arabicName: 'السلط',
+      long: 35.7273,
+      lat: 32.0392
+    },
+    {
+      city_id: 7,
+      value: 'Aqaba',
+      arabicName: 'العقبة',
+      long: 35.0075,
+      lat: 29.5269
+    },
+    {
+      city_id: 8,
+      value: 'Irbid',
+      arabicName: 'اربد',
+      long: 35.8575,
+      lat: 32.5556
+    },
+    {
+      city_id: 9,
+      value: 'Madaba',
+      arabicName: 'مادبا',
+      long: 35.8,
+      lat: 31.7167
+    },
+    {
+      city_id: 10,
+      value: 'Karak',
+      arabicName: 'الكرك',
+      long: 35.7047,
+      lat: 31.1837
+    },
+    {
+      city_id: 11,
+      value: 'Mafraq',
+      arabicName: 'المفرق',
+      long: 36.2053,
+      lat: 32.3404
+    },
+    {
+      city_id: 12,
+      value: 'Zarqa',       
+      arabicName: 'الزرقاء',
+      long: 36.0877,
+      lat: 32.0722
+    },
+    {
+      city_id: 13,
+      value: 'Tafilah',
+      arabicName: 'الطفيلة',
+      long: 35.6,
+      lat: 30.8333
+    },
 ];
 
 const getCitiesArrayForFilter = () => {
@@ -1038,13 +800,85 @@ const isValidText = (text, minLength) => {
     return true;
 };
 
-const isValidNumber = (num, maxLength) => {
+const isValidNumber = (num, maxLength, minLength, type) => {
 
-    if(!num || typeof num !== "number" || num <= 0) return false;
+    if(isNaN(Number(num))) return false;
 
-    if(maxLength && num > maxLength) return false;
+    if(Boolean(maxLength) && (typeof num !== "number" || num > maxLength)) return false;
+
+    if(Boolean(minLength <= 0 ? 1 : minLength) && (typeof num !== "number" || num < minLength)) return false;
+
+    if(!Boolean(maxLength) && !Boolean(minLength) && (typeof num !== "number" || num <= 0)) return false;
     
     return true;
+
+};
+
+const contactsPlatforms = [
+  'whatsapp', 'facebook', 'instagram', 'youtube'
+];
+
+const isValidContacts = (contacts) => {
+
+  for (let i = 0; i < contacts.length; i++) {
+
+    const contact = contacts[i];
+
+    if(!isValidText(contact.val) || !contactsPlatforms.includes(contact.platform))
+        return false;
+
+    let origin;
+
+    try {
+        origin = (new URL(contact.val)).origin;
+    } catch(err) {
+        if(contact.platform !== 'whatsapp' && contact.platform !== 'telegram')
+            return false;
+        if(!isValidNumber(Number(contact.val))) return false;
+    }
+
+    console.log('going...', origin, !origin, contact);
+
+    switch(contact.platform){
+        case 'youtube':
+            if(origin !== 'https://www.youtube.com' && origin !== 'https://youtu.be'){
+                return false;
+            }
+            break;
+        case 'whatsapp':
+            if(origin && origin !== 'https://wa.me'){
+                return false;
+            } else if(!origin && !isValidNumber(Number(contact.val))){
+                return false;
+            }
+            break;
+        case 'facebook':
+            if(origin !== 'https://www.youtube.com' && origin !== 'https://youtu.be'){
+                return false;
+            }
+        case 'snapchat':
+            if(origin !== 'https://www.youtube.com' && origin !== 'https://youtu.be'){
+                return false;
+            }
+            break;
+        case 'linkedin':
+            if(origin !== 'https://www.youtube.com' && origin !== 'https://youtu.be'){
+                return false;
+            }
+            break;
+        case 'instagram':
+            if(origin !== 'https://www.youtube.com' && origin !== 'https://youtu.be'){
+                return false;
+            }
+            break;
+        default:
+            return false;
+    }
+
+  }
+
+  console.log('returned true');
+  return true;
 
 };
 
@@ -1070,22 +904,25 @@ const updatePropertyRating = async(propertyId, ratingsObj, addScore, isNew, past
 
         const numOfRates = ratingsObj.no;
 
-        if(typeof value !== 'number') return;
+        if(typeof value !== 'number') return null;
 
-        if(typeof numOfRates !== 'number') return;
+        if(typeof numOfRates !== 'number') return null;
 
         const sumScore = isNew ? (value * numOfRates) : (value * numOfRates) - pastRateObj.user_rating;
 
         const newValue = (sumScore + addScore) / (isNew ? numOfRates + 1 : numOfRates);
 
-        const newRatingsObj = { val: newValue, no: isNew ? numOfRates + 1 : numOfRates };
+        const newRatingsObj = { val: newValue > 5 ? 5 : newValue < 0 ? 0 : newValue, no: isNew ? (numOfRates + 1 < 0 ? 0 : numOfRates + 1) : (numOfRates < 0 ? 0 : numOfRates) };
 
-        console.log('rate obj: ', newRatingsObj);
+        const newProp = await Property.findOneAndUpdate({ _id: propertyId }, { 
+          ratings: newRatingsObj
+        }, { new: true });
 
-        await Property.updateOne({ _id: propertyId }, { ratings: newRatingsObj });
+        return newProp;
 
     } catch (err) {
-        console.log(err.message);
+        console.log(err);
+        return null;
     }
 
 };
@@ -1134,8 +971,6 @@ const generateSecretKey = (userId, username) => {
 
 };
 
-
-
 module.exports = {
     JordanBoundryPoints,
     citiesArray,
@@ -1156,6 +991,7 @@ module.exports = {
     isValidEmail,
     isValidUsername,
     isValidText,
+    isValidContacts,
     isValidNumber,
     isValidDetails,
     isValidTerms,
