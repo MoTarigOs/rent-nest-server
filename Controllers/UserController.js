@@ -12,18 +12,12 @@ const registerUser = async(req, res) => {
 
     try{
 
+        console.log('registering new user');
+
         if(!req?.body)
             return res.status(400).json({message: "request error"});
 
-        const { username, email, password, captchaToken } = req.body;
-
-        // if(!captchaToken) return res.status(403).send("captcha error");
-
-        // const captchaRes = await axios.post(
-        //     `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`
-        // );
-
-        // if (!captchaRes.data.success) return res.status(403).send("captcha error");
+        const { username, email, password } = req.body;
 
         if(!isValidPassword(password))
             return res.status(400).json({message: "pass error"});
@@ -52,6 +46,7 @@ const registerUser = async(req, res) => {
         res.status(201).send("Account Successfully created");
 
     } catch (err) {
+        console.log(err);
         return res.status(500).json({ message: 'unknown error' });
     }
 
