@@ -55,6 +55,9 @@ const userSchema = mongoose.Schema({
         block_duration: {type: Number},
         reason: {type: String, maxLength: 500}
     },
+    attempts: {
+        type: Number, max: 60, min: 0, default: 0
+    },
     isBlocked: {
         type: Boolean,
         default: false

@@ -1,11 +1,12 @@
 const WL = require('../Data/WhiteList.js');
 const Property = require('../Data/PropertyModel.js');
-const axios = require('axios');
+const crypto = require('crypto');
 require('dotenv').config();
 const path = require('path');
 const fsPromise = require('fs').promises;
 var nodemailer = require('nodemailer');
-const givenSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789abcdefghijklmnopqrstuvwxyz";
+const givenSet = "5LSQYvkBOwdjNEyleRIc1mW68rHP2MzVao37hfJKsngtDx4ZiGCpX9AqFuUbT";
+const givenSetOriginal = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789abcdefghijklmnopqrstuvwxyz";
 const testChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz -_.,+=!~;:#@0123456789أابتثجحخدذرزعغلمنهويئسشصضطكفقةىءؤ؛×÷ّآ,؟.';
 const validator = require('validator');
 
@@ -516,7 +517,9 @@ const JordanBoundryPoints = [
 
 const isValidPoint = (myLong, myLat) => {
 
-    if(!myLong || !myLat) return false;
+    if(!myLong && !myLat) return true;
+
+    if(!myLong || !myLat || !isValidNumber(myLong, null, 0) || !isValidNumber(myLat, null, 0)) return false;
 
     const point = {
       x: myLong, y: myLat
@@ -613,53 +616,15 @@ const deleteTokens = async (email) => {
     }
 }
 
-const fetchAccessToken = async(accessToken) => {
-
-    const url = process.env.GOOGLE_GET_USER_INFO_FROM_TOKEN;
-
-    const axiosConfig = {
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Accept': 'application/json'
-        }
-    }
-
-    try{
-        const res = await axios.post(url, null, axiosConfig);
-        return res;
-    } catch(err){
-        console.log(err.message);
-        return null;
-    }
-}
-
-const getRandomPassword = () => {
-    const chars = "0123456789abcdefghijklmnopqrstuvwxyz!@#$%^&*()ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const passwordLength = 32;
-    let password = "";
-
-    for (var i = 0; i <= passwordLength; i++) {
-        var randomNumber = Math.floor(Math.random() * chars.length);
-        password += chars.substring(randomNumber, randomNumber +1);
-    }
-
-    return password;
-}
-
-const validateImageType = (image) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-    if(allowedTypes.includes(image.mimetype))
-      return true;
-    return false;
-}
-
 const generateRandomCode = () => {
 
     let code = "";
+
     for(let i = 0; i < 6; i++) {
-        const pos = Math.floor(Math.random()*givenSet.length);
+        const pos = crypto.randomInt(givenSet.length);
         code += givenSet[pos];
     }
+    
     return code;
 
 };
@@ -676,19 +641,11 @@ const sendToEmail = async(msg, userEmail, gmailAccount, appPassword) => {
                 service: 'gmail',
                 auth: {
                     user: gmailAccount,
-                    pass: appPassword  //App password not actual account password
+                    pass: appPassword  //Account App password
                 }
             });
 
-            let htmlText = '';
-
-            // console.log("personal email: ", process.env.PERSONAL_EMAIL);
-
-            if(userEmail !== process.env.PERSONAL_EMAIL){
-                htmlText = `<html lang="en" style="margin: 0; padding: 0; width: 100%"><body style="margin: 0; padding: 0; width: 100%"><div style="width: 100%; display: flex; justify-content: center; align-items: center;"><h1 style="height: fit-content; font-size: 42px; border: solid 2px; border-radius: 4px; padding: 8px 16px; letter-spacing: 1px;">${sanitizedText}</h1></div></body></html>`
-            } else {
-                htmlText = `<html lang="en" style="margin: 0; padding: 0; width: 100%"><body style="margin: 0; padding: 0; width: 100%"><div style="width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px;">${sanitizedText}</div></body></html>`
-            }
+            let htmlText = `<html lang="en" style="margin: 0; padding: 0; width: 100%"><body style="margin: 0; padding: 0; width: 100%"><div style="width: 100%; display: flex; justify-content: center; align-items: center;"><h1 style="height: fit-content; font-size: 42px; border: solid 2px; border-radius: 4px; padding: 8px 16px; letter-spacing: 1px;">${sanitizedText}</h1></div></body></html>`;
     
             var mailOptions = {
                 from: gmailAccount,
@@ -711,26 +668,6 @@ const sendToEmail = async(msg, userEmail, gmailAccount, appPassword) => {
     });
 };
 
-const logDeletedPic = async(pics) => {
-
-    console.log("pics: ", pics);
-
-    if(!pics || pics.length <= 0) return;
-
-    let logObject = "";
-
-    for (let i = 0; i < pics.length; i++) {
-        logObject += validator.escape(`{"name": "${pics[i]}"}` + "\n");
-    }
-
-    await fsPromise.appendFile(path.join(__dirname, "..", "Log", "DeleteCloudPics.log"), logObject);
-
-};
-
-const escapeHtmlandJS = (text) => {
-    return validator.escape(text);
-};
-
 const isValidPassword = (ps) => {
 
     if(typeof ps !== "string" || ps.length < 8 || ps.length > 100) return false;
@@ -739,10 +676,7 @@ const isValidPassword = (ps) => {
 
         let passed = false;
 
-        for (let j = 0; j < testChars.length; j++) {
-            if(ps[i] === testChars[j]) 
-                passed = true;
-        }
+        if(testChars.includes(ps[i])) passed = true;
 
         if(!passed) return false;
 
@@ -780,24 +714,21 @@ const isValidEmail = (email) => {
 
 };
 
+const isOkayText = s => (!/[^\u0600-\u06FF\u0020-\u0040\u005B-\u0060\u007B-\u007E-\u0000-\u007F]/.test(s));
+
 const isValidText = (text, minLength) => {
 
     if(!minLength && (!text || typeof text !== "string" || text.length <= 0)) return false;
 
     if(minLength && (!text || typeof text !== "string" || text.length < minLength)) return false;
 
-    // for (let i = 0; i < text.length; i++) {
+    if(!isOkayText(text)) return false;
 
-    //     let passed = false;
+    const notAllowedTextChars = ['<', '>', '&','/','"',"'", '`'];
 
-    //     for (let j = 0; j < testChars.length; j++) {
-    //         if(text[i] === testChars[j]) 
-    //             passed = true;
-    //     }
-
-    //     if(!passed) return false;
-
-    // };
+    for (let i = 0; i < notAllowedTextChars.length; i++) {
+      if(text.includes(notAllowedTextChars[i])) return false;
+    };
     
     return true;
 };
@@ -817,7 +748,7 @@ const isValidNumber = (num, maxLength, minLength, type) => {
 };
 
 const contactsPlatforms = [
-  'whatsapp', 'facebook', 'instagram', 'youtube'
+  'whatsapp', 'facebook', 'instagram', 'youtube', 'linkedin', 'snapchat', 'telegram', 'gmail'
 ];
 
 const isValidContacts = (contacts) => {
@@ -826,20 +757,16 @@ const isValidContacts = (contacts) => {
 
     const contact = contacts[i];
 
-    if(!isValidText(contact.val) || !contactsPlatforms.includes(contact.platform))
-        return false;
+    if(!contactsPlatforms.includes(contact.platform)) return false;
 
     let origin;
 
     try {
         origin = (new URL(contact.val)).origin;
     } catch(err) {
-        if(contact.platform !== 'whatsapp' && contact.platform !== 'telegram')
-            return false;
+        if(contact.platform !== 'whatsapp') return false;
         if(!isValidNumber(Number(contact.val))) return false;
     }
-
-    console.log('going...', origin, !origin, contact);
 
     switch(contact.platform){
         case 'youtube':
@@ -885,11 +812,39 @@ const isValidContacts = (contacts) => {
 };
 
 const isValidDetails = (dtl) => {
+
+    if(!dtl) return false;
+
+    if(dtl.insurance !== false && dtl.insurance !== true) return false;
+
+    const dtlsArr = [
+        ...(dtl.guest_rooms ? dtl.guest_rooms : []), 
+        ...(dtl.facilities ? dtl.facilities : []), 
+        ...(dtl.bathrooms ? dtl.bathrooms : []), 
+        ...(dtl.kitchen ? dtl.kitchen : []), 
+        ...(dtl.rooms ? dtl.rooms : []), 
+        ...(dtl.vehicle_specifications ? dtl.vehicle_specifications : []), 
+        ...(dtl.vehicle_addons ? dtl.vehicle_addons : []),
+        ...(dtl.near_places ? dtl.near_places : [])
+    ];
+
+    for(let i = 0; i < dtlsArr.length; i++){
+        if(!isValidText(dtlsArr[i])) return false;
+    };
+
     return true;
 };
 
 const isValidTerms = (trms) => {
+
+    if(!trms) return false;
+
+    for(let i = 0; i < trms.length; i++){
+        if(!isValidText(trms[i])) return false;
+    };
+
     return true;
+
 };
 
 const arrayLimitSchema = (val) => {
@@ -930,8 +885,6 @@ const updatePropertyRating = async(propertyId, ratingsObj, addScore, isNew, past
 };
 
 const isValidBookDateFormat = (date) => {
-
-  console.log('date: ', date);
 
   if(!date || typeof date !== 'string' || date.length <= 0) return false;
 
@@ -982,13 +935,8 @@ module.exports = {
     updateWhiteListAccessToken, 
     checkWhiteListAccessToken, 
     deleteTokens, 
-    fetchAccessToken, 
-    getRandomPassword,
-    validateImageType,
     generateRandomCode,
     sendToEmail,
-    logDeletedPic,
-    escapeHtmlandJS,
     isValidPassword,
     isValidEmail,
     isValidUsername,

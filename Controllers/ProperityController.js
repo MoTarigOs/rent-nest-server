@@ -185,7 +185,7 @@ const createProperty = async(req, res) => {
 
         if(neighbourhood && !isValidText(neighbourhood)) return res.status(400).json({ message: 'neighbourhood error' });
         
-        // if(map_coordinates && (map_coordinates.length > 2 || !isValidPoint(map_coordinates[0], map_coordinates[1]))) return res.status(400).json({ message: 'coordinates error' });
+        if(map_coordinates && (map_coordinates.length !== 2 || !isValidPoint(map_coordinates[0], map_coordinates[1]))) return res.status(400).json({ message: 'coordinates error' });
 
         if(!isValidNumber(price)) return res.status(400).json({ message: 'price error' });
 
@@ -223,6 +223,8 @@ const createProperty = async(req, res) => {
         const property = await Property.create(getObj());
 
         if(!property) return res.status(500).json({ message: 'server error' });
+
+        console.log('property id: ', property._id);
 
         return res.status(201).json({
             id: property._id

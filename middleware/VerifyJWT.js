@@ -22,7 +22,7 @@ const verifyJWT = asyncHandler( async (req, res, next) => {
 
             req.user = decoded.user;
 
-            req.token_exp = decoded.exp - decoded.iat;
+            req.token_exp = (decoded.exp * 1000) - (decoded.iat * 1000);
 
             const userEmail = req.user.email;
             const allowed = await checkWhiteListAccessToken(userEmail, token);

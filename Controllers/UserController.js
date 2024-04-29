@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { default: mongoose } = require('mongoose');
 const Property = require('../Data/PropertyModel.js');
+const WL = require('../Data/WhiteList.js');
 
 const registerUser = async(req, res) => {
 
@@ -210,13 +211,15 @@ const changePasswordSignPage = asyncHandler( async(req, res) => {
         code: null, date: null, attempts: 0
     });
 
-    const updateVerCode = await VerCode.updateOne({ email: email }, { 
+    await VerCode.updateOne({ email: email }, { 
         code: null, date: null, attempts: 0 
     });
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    const user = await User.updateOne({ email: email }, { password: hashedPassword });
+    const user = await User.updateOne({ email: email }, { 
+        password: hashedPassword, attempts: 0
+    });
 
     if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
         return res.status(500).send("server error");
@@ -249,9 +252,13 @@ const loginUser = asyncHandler(async (req, res) => {
 
     let wasBlocked = false;
 
-    let user = await User.findOne({ email: email });
+    let user = await User.findOneAndUpdate({ email: email }, { 
+        $inc: { attempts: 1 } 
+    });
     
-    if(!user) return res.status(404).json({message: "user not exist"});
+    if(!user) return res.status(404).json({ message: "user not exist" });
+
+    if(user.attempts > 30) return res.status(403).json({ message: 'attempts exceeded' });
 
     if(user.isBlocked){
 
@@ -286,6 +293,10 @@ const loginUser = asyncHandler(async (req, res) => {
     };    
 
     if((await bcrypt.compare(password, user.password))){
+
+        await User.updateOne({ _id: user._id, email: user.email }, {
+            attempts: 0
+        });
 
         const accessToken = jwt.sign({
             user: {
@@ -324,7 +335,7 @@ const loginUser = asyncHandler(async (req, res) => {
                 secure: true, 
                 maxAge: (90 * 24 * 60 * 60 * 1000)
             });
-            res.cookie('username-cookie', encodeURIComponent(user.username));
+            res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
             res.json(({ message: wasBlocked ? "was blocked" : "login success" }));
         } else {
             res.status(501).json({message: "server error"});
@@ -379,12 +390,12 @@ const getUserInfo = asyncHandler(async(req, res) => {
 
 const refreshToken = asyncHandler( async (req, res) => {
 
-    const refreshToken = req?.cookies?._r_t ? req.cookies._r_t : null;
+    const refreshTokenCookie = req?.cookies?._r_t ? req.cookies._r_t : null;
 
-    if(!refreshToken) return res.status(400).json({ message: "login error" });
+    if(!refreshTokenCookie) return res.status(400).json({ message: "login error" });
 
     jwt.verify(
-        refreshToken,
+        refreshTokenCookie,
         process.env.REFRESH_TOKEN_SECRET,
         asyncHandler( async(err, decoded) => {
 
@@ -393,7 +404,7 @@ const refreshToken = asyncHandler( async (req, res) => {
 
             const validToken = await WL.findOne({ email: decoded.user.email });
 
-            if(!validToken || !validToken.refreshToken || validToken.refreshToken !== refreshToken) 
+            if(!validToken || !validToken.refreshToken || validToken.refreshToken !== refreshTokenCookie) 
                 return res.status(403).json({ message: "login error" });
 
             const accessToken = jwt.sign({
@@ -436,6 +447,7 @@ const refreshToken = asyncHandler( async (req, res) => {
                 secure: true, 
                 maxAge: (90 * 24 * 60 * 60 * 1000)
             });
+            res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
             res.json({ message: "refreshed successfully" });
 
         })
@@ -474,7 +486,9 @@ const changePassword = asyncHandler(async(req, res) => {
     /* hash the password */
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    const user = await User.updateOne({ email: email }, { password: hashedPassword });
+    const user = await User.updateOne({ email: email }, { 
+        password: hashedPassword, attempts: 0 
+    });
 
     if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
         return res.status(501).send("server error");
@@ -491,6 +505,7 @@ const logoutUser = asyncHandler(async(req, res) => {
 
     res.clearCookie('_a_t');    
     res.clearCookie('_r_t');
+    res.cookie('is_logined', 'false', { maxAge: 100000000000000 });
     res.clearCookie('csrf_token');
     res.clearCookie('csrf-token');
     res.status(201);

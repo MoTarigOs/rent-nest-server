@@ -3,16 +3,17 @@ const router = express.Router();
 const { createProperty, getProperty, getOwnerProperty, getProperties, addReview, editProperty, hideProperty, showProperty, deleteProperty, updateCoordinates, setAbleToBook, setPreventBook, setBookedDays } = require('../Controllers/ProperityController.js');
 const verifyJWT = require('../middleware/VerifyJWT.js');
 const verifyJWTOptional = require('../middleware/VerifyOptionalJWT.js');
+const verifyReCaptcha = require('../middleware/VerifyReCaptcha.js');
 
 router.get('/item', getProperty);
 
 router.get('/', verifyJWTOptional, getProperties);
 
-router.post('/create', verifyJWT, createProperty);
+router.post('/create', verifyJWT, verifyReCaptcha, createProperty);
 
 router.get('/owner/:userId', getOwnerProperty);
 
-router.put('/edit/:propertyId', verifyJWT, editProperty);
+router.put('/edit/:propertyId', verifyJWT, verifyReCaptcha, editProperty);
 
 router.put('/hide/:propertyId', verifyJWT, hideProperty);
 

@@ -1,6 +1,6 @@
 
 
-const verifyReCaptcha = async(req, res) => {
+const verifyReCaptcha = async(req, res, next) => {
 
     try {
 
@@ -8,15 +8,14 @@ const verifyReCaptcha = async(req, res) => {
 
         if(!token) return res.status(400).json({ message: 'request error' });
 
-        const url = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=sdsd`;
-        
-        console.log('url: ', url);
+        const url = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY.toString()}&response=${token.toString()}`;
 
-        const fetchRes = (await fetch({
-            url: url.toString(), method: 'POST'
-        })).json();
+        const fetchRes = await (await fetch(url, { method: 'POST' })).json();
 
-        console.log('recaptcha res: ', fetchRes);
+        console.log('recaptcha res: ', await fetchRes);
+
+        if(!fetchRes || fetchRes.success !== true || fetchRes.score < 0.5) 
+            return res.status(403).json({ message: 'recaptcha error' });
 
         next();
 
