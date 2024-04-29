@@ -54,13 +54,9 @@ const registerUser = async(req, res) => {
 
 const sendCodeToEmail = asyncHandler(async(req, res) => {
 
-    console.log('reached');
-
     if(!req || !req.user) return res.status(400).send("request error");
 
     const { email } = req.user;
-
-    console.log('email: ', isValidEmail(email).toString());
 
     if(!isValidEmail(email)) return res.status(403).send("please enter valid email!");
 
@@ -73,7 +69,7 @@ const sendCodeToEmail = asyncHandler(async(req, res) => {
 
     const sendEmailRes = await sendToEmail(code, email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD);
 
-    if(!sendEmailRes || sendEmailRes === false) return res.status(501).send("server error");
+    if(!sendEmailRes || sendEmailRes === false) return res.status(500).send("server error");
 
     const verCodeRes = await VerCode.findOneAndUpdate({ email: email }, { 
         code: code, 
@@ -89,7 +85,7 @@ const sendCodeToEmail = asyncHandler(async(req, res) => {
             attempts: 0
         });
 
-        if(!verCodeCreate) return res.status(501).send("Eserver error");
+        if(!verCodeCreate) return res.status(500).send("Eserver error");
     };
 
     res.status(201).send("Code sent Successfully");
@@ -102,8 +98,6 @@ const sendCodeToEmailSignPage = asyncHandler(async(req, res) => {
 
     const { email } = req.query;
 
-    console.log('email: ', isValidEmail(email).toString());
-
     if(!isValidEmail(email)) return res.status(403).send("please enter valid email!");
 
     /* check email availability */
@@ -115,7 +109,7 @@ const sendCodeToEmailSignPage = asyncHandler(async(req, res) => {
 
     const sendEmailRes = await sendToEmail(code, email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD);
 
-    if(!sendEmailRes || sendEmailRes === false) return res.status(501).send("server error");
+    if(!sendEmailRes || sendEmailRes === false) return res.status(500).send("server error");
 
     const verCodeRes = await VerCode.findOneAndUpdate({ email: email }, { 
         code: code, 
@@ -131,7 +125,7 @@ const sendCodeToEmailSignPage = asyncHandler(async(req, res) => {
             attempts: 0
         });
 
-        if(!verCodeCreate) return res.status(501).send("Eserver error");
+        if(!verCodeCreate) return res.status(500).send("Eserver error");
     };
 
     res.status(201).send("Code sent Successfully");
@@ -173,7 +167,7 @@ const verifyEmail = asyncHandler( async(req, res) => {
 
     const updateUser = await User.findOneAndUpdate({ email }, { email_verified: true });
 
-    if(!updateVerCode || !updateUser) return res.status(501).send("server error");
+    if(!updateVerCode || !updateUser) return res.status(500).send("server error");
 
     res.status(201).send("Successfully verified your Email");
 
@@ -237,14 +231,6 @@ const loginUser = asyncHandler(async (req, res) => {
     
     if(!isValidPassword(password)) return res.status(400).json({message: "pass error"});
 
-    // if(!captchaToken) return res.status(403).send("captcha error");
-
-    // const captchaRes = await axios.post(
-    //     `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`
-    // );
-
-    // if (!captchaRes.data.success) return res.status(403).send("captcha error");    
-
     let wasBlocked = false;
 
     let user = await User.findOneAndUpdate({ email: email }, { 
@@ -279,7 +265,7 @@ const loginUser = asyncHandler(async (req, res) => {
             { blocked: blockObj, isBlocked: false }, 
             { new: true });
 
-        if(!updateBlockedUser) return res.status(501).send("server error");
+        if(!updateBlockedUser) return res.status(500).send("server error");
 
         user = updateBlockedUser;
        
@@ -330,10 +316,10 @@ const loginUser = asyncHandler(async (req, res) => {
                 secure: true, 
                 maxAge: (90 * 24 * 60 * 60 * 1000)
             });
-            res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
+            //res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
             res.json(({ message: wasBlocked ? "was blocked" : "login success" }));
         } else {
-            res.status(501).json({message: "server error"});
+            res.status(500).json({message: "server error"});
         }
 
     } else {
@@ -424,8 +410,7 @@ const refreshToken = asyncHandler( async (req, res) => {
 
             const updateList = await updateWhiteListAccessToken(decoded.user.email, accessToken, refreshToken);
 
-            if(!updateList)
-                return res.status(501).send("server error");
+            if(!updateList) return res.status(500).send("server error");
             
             res.status(201);
             res.cookie('_a_t', accessToken, { 
@@ -442,7 +427,7 @@ const refreshToken = asyncHandler( async (req, res) => {
                 secure: true, 
                 maxAge: (90 * 24 * 60 * 60 * 1000)
             });
-            res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
+            //res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
             res.json({ message: "refreshed successfully" });
 
         })
@@ -486,7 +471,7 @@ const changePassword = asyncHandler(async(req, res) => {
     });
 
     if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
-        return res.status(501).send("server error");
+        return res.status(500).send("server error");
     }
 
     res.status(201).send("Successfully chenged password");
@@ -500,7 +485,7 @@ const logoutUser = asyncHandler(async(req, res) => {
 
     res.clearCookie('_a_t');    
     res.clearCookie('_r_t');
-    res.cookie('is_logined', 'false', { maxAge: 100000000000000 });
+    //res.cookie('is_logined', 'false', { maxAge: 100000000000000 });
     res.clearCookie('csrf_token');
     res.clearCookie('csrf-token');
     res.status(201);
@@ -549,7 +534,7 @@ const deleteAccount = asyncHandler(async(req, res) => {
     const deletedAccount = await User.deleteOne({ _id: id });
 
     if(!deletedAccount || deletedAccount.deleteCount <= 0)
-        return res.status(501).json({ message: "server error" });
+        return res.status(500).json({ message: "server error" });
     
     await Property.deleteMany({ owner_id: id }); 
 
@@ -586,7 +571,7 @@ const getFavourites = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(500).json({ message: err.message });
     }
 
 };
@@ -613,7 +598,7 @@ const addToFavourite = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(500).json({ message: err.message });
     }
 
 };
@@ -640,7 +625,7 @@ const removeFromFavourite = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(500).json({ message: err.message });
     }
 
 };
@@ -688,7 +673,7 @@ const getBooks = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(500).json({ message: err.message });
     }
 
 };
@@ -743,7 +728,7 @@ const addToBooks = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(500).json({ message: err.message });
     }
 
 };
@@ -770,7 +755,7 @@ const removeFromBooks = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(500).json({ message: err.message });
     }
 
 };
@@ -805,7 +790,7 @@ const editUser = async(req, res) => {
     
     } catch (err) {
         console.log(err.message);
-        return res.status(501).json({ message: err.message });
+        return res.status(500).json({ message: err.message });
     }
 
 };
