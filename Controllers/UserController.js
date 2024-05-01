@@ -219,7 +219,7 @@ const loginUser = asyncHandler(async (req, res) => {
     if(req?.body === null || req?.body === undefined)
         return res.status(404).json({message: "request error"});
 
-    const { email, password, captchaToken } = req.body;
+    const { email, password } = req.body;
     
     if(!email || !password) return res.status(400).json({message: "empty field"});
 
@@ -301,15 +301,15 @@ const loginUser = asyncHandler(async (req, res) => {
             res.cookie('_a_t', accessToken, { 
                 path: '/', 
                 // httpOnly: true, 
-                // sameSite: 'None', 
-                // secure: true, 
+                sameSite: 'None', 
+                secure: true, 
                 maxAge: (30 * 24 * 60 * 60 * 1000)
             });
             res.cookie('_r_t', refreshToken, { 
                 path: '/', 
                 // httpOnly: true, 
-                // sameSite: 'None', 
-                // secure: true, 
+                sameSite: 'None', 
+                secure: true, 
                 maxAge: (90 * 24 * 60 * 60 * 1000)
             });
             res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
