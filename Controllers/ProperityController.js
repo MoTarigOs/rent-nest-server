@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Property = require('../Data/PropertyModel.js');
 const Report = require('../Data/ReportModel.js');
+const User = require('../Data/UserModel.js');
 const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts } = require('../utils/logic.js');
 const sortLatDistance = 0.5;
 
@@ -167,6 +168,11 @@ const createProperty = async(req, res) => {
         if(!req || !req.user || !req.body) return res.status(400).json({ message: 'request error' });
         
         const { id } = req.user;
+
+        const user = await User.findOne({ _id: id, email_verified: true });
+
+        if(!user) return res.status(400).json({ message: 'User not exist' });
+
         const { 
             type_is_vehicle, specific_catagory, title, description, city, 
             neighbourhood, map_coordinates, price, details, 
@@ -292,6 +298,10 @@ const addReview = async(req, res) => {
         if(!req || !req.user || !req.body || !req.query) return res.status(400).json({ message: 'request error' });
 
         const { id, username } = req.user;
+
+        const user = await User.findOne({ _id: id, email_verified: true });
+
+        if(!user) return res.status(400).json({ message: 'User not exist' });
 
         const { text, user_rating } = req.body;
 

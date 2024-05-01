@@ -134,7 +134,7 @@ const sendCodeToEmailSignPage = asyncHandler(async(req, res) => {
 
 const verifyEmail = asyncHandler( async(req, res) => {
 
-    if(!req || !req.user || !req.body) return res.status(403).send("Error in the request");
+    if(!req || !req.user || !req.body) return res.status(403).send("request error");
 
     const { eCode } = req.body;
     
@@ -161,13 +161,9 @@ const verifyEmail = asyncHandler( async(req, res) => {
         code: null, date: null, attempts: 0
     });
 
-    const updateVerCode = await VerCode.updateOne({ email: email }, { 
-        code: null, date: null, attempts: 0 
-    });
-
     const updateUser = await User.findOneAndUpdate({ email }, { email_verified: true });
 
-    if(!updateVerCode || !updateUser) return res.status(500).send("server error");
+    if(!updateUser) return res.status(500).send("server error");
 
     res.status(201).send("Successfully verified your Email");
 
@@ -304,19 +300,19 @@ const loginUser = asyncHandler(async (req, res) => {
             res.status(201);
             res.cookie('_a_t', accessToken, { 
                 path: '/', 
-                httpOnly: true, 
-                sameSite: 'None', 
-                secure: true, 
+                // httpOnly: true, 
+                // sameSite: 'None', 
+                // secure: true, 
                 maxAge: (30 * 24 * 60 * 60 * 1000)
             });
             res.cookie('_r_t', refreshToken, { 
                 path: '/', 
-                httpOnly: true, 
-                sameSite: 'None', 
-                secure: true, 
+                // httpOnly: true, 
+                // sameSite: 'None', 
+                // secure: true, 
                 maxAge: (90 * 24 * 60 * 60 * 1000)
             });
-            //res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
+            res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
             res.json(({ message: wasBlocked ? "was blocked" : "login success" }));
         } else {
             res.status(500).json({message: "server error"});
@@ -415,19 +411,19 @@ const refreshToken = asyncHandler( async (req, res) => {
             res.status(201);
             res.cookie('_a_t', accessToken, { 
                 path: '/', 
-                httpOnly: true, 
-                sameSite: 'None', 
-                secure: true, 
+                // httpOnly: true, 
+                // sameSite: 'None', 
+                // secure: true, 
                 maxAge: (30 * 24 * 60 * 60 * 1000)
             });
             res.cookie('_r_t', refreshToken, { 
                 path: '/', 
-                httpOnly: true, 
-                sameSite: 'None', 
-                secure: true, 
+                // httpOnly: true, 
+                // sameSite: 'None', 
+                // secure: true, 
                 maxAge: (90 * 24 * 60 * 60 * 1000)
             });
-            //res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
+            res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
             res.json({ message: "refreshed successfully" });
 
         })
@@ -467,14 +463,14 @@ const changePassword = asyncHandler(async(req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     const user = await User.updateOne({ email: email }, { 
-        password: hashedPassword, attempts: 0 
+        password: hashedPassword, attempts: 0, email_verified: true
     });
 
     if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
         return res.status(500).send("server error");
     }
 
-    res.status(201).send("Successfully chenged password");
+    res.status(201).send("Successfully changed password");
 
 });
 
@@ -540,7 +536,7 @@ const deleteAccount = asyncHandler(async(req, res) => {
 
     res.clearCookie('_a_t');    
     res.clearCookie('_r_t');
-    res.status(200);
+    res.status(201);
     res.json({ message: 'success' });   
 
 });
@@ -588,7 +584,7 @@ const addToFavourite = async(req, res) => {
         if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
             return res.status(400).json({ message: 'request error' });
 
-        const user = await User.findOneAndUpdate({ _id: id }, {
+        const user = await User.findOneAndUpdate({ _id: id, email_verified: true }, {
             $addToSet: { favourites: propertyId }
         }, { new: true }).select('_id favourites');
 
@@ -688,8 +684,6 @@ const addToBooks = async(req, res) => {
         const { propertyId } = req.params;
         const { startDate, endDate } = req.body;
 
-        console.log('books: ', startDate);
-
         if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
             return res.status(400).json({ message: 'request error' });
 
@@ -698,7 +692,7 @@ const addToBooks = async(req, res) => {
         if(endDate && typeof endDate !== 'number') return res.status(400).json({ message: 'date error' });    
 
         const user = await User.findOneAndUpdate({ 
-            _id: id, books: { $elemMatch: { property_id: propertyId } }
+            _id: id, email_verified: true, books: { $elemMatch: { property_id: propertyId } }
         }, {
             $set: { "books.$" : { 
                 property_id: propertyId, 
@@ -778,7 +772,7 @@ const editUser = async(req, res) => {
 
         if(updatePhone && !isValidText(updatePhone)) return res.status(400).json({ message: 'phone error' });
     
-        const user = await User.findOneAndUpdate({ _id: id }, {
+        const user = await User.findOneAndUpdate({ _id: id, email_verified: true }, {
             username: updateUsername ? updateUsername : username,
             address: updateAddress,
             phone: updatePhone
