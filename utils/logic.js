@@ -11,8 +11,8 @@ const testChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz -_.,+=!~
 const validator = require('validator');
 
 const allowedSpecificCatagory = [
-    'farm', 'apartment', 'resort', 'commercial', 
-    'micro', 'sedan', 'high', 'luxury', 'mini-bus', 'sport'
+    'farm', 'apartment', 'resort', 'student', 
+    'transports'
 ];
 
 const citiesArray = [
@@ -39,7 +39,7 @@ const citiesArray = [
     },
     {
       city_id: 3,
-      value: 'Dead Sea & Jordan Valley',
+      value: 'Dead Sea and Jordan Valley',
       arabicName: 'البحر الميت و ألأغوار',
       long: 35.5699,
       lat: 32.3172
@@ -737,12 +737,18 @@ const isValidNumber = (num, maxLength, minLength, type) => {
 
     if(isNaN(Number(num))) return false;
 
-    if(Boolean(maxLength) && (typeof num !== "number" || num > maxLength)) return false;
+    if(Boolean(maxLength) && (typeof num !== "number" || num > maxLength)) {
+      return false;
+    }
 
-    if(Boolean(minLength <= 0 ? 1 : minLength) && (typeof num !== "number" || num < minLength)) return false;
+    if((Boolean(minLength) || type == 'start-zero') && (typeof num !== "number" || (type == 'start-zero' ? num < 0 : num < minLength))) {
+      return false;
+    }
 
-    if(!Boolean(maxLength) && !Boolean(minLength) && (typeof num !== "number" || num <= 0)) return false;
-    
+    if(type !== 'start-zero' && !Boolean(maxLength) && !Boolean(minLength) && (typeof num !== "number" || num <= 0)){ 
+      return false;
+    }
+
     return true;
 
 };
@@ -750,6 +756,22 @@ const isValidNumber = (num, maxLength, minLength, type) => {
 const contactsPlatforms = [
   'whatsapp', 'facebook', 'instagram', 'youtube', 'linkedin', 'snapchat', 'telegram', 'gmail'
 ];
+
+const getCancellationsIDS = (text) => {
+    const arr = [
+      'Cancellation is possible at any time before the appointment',
+      'Cancellation is possible up to 48 hours before the appointment',
+      'Cancellation is possible up to 72 hours before the appointment',
+      'Cancellation is possible up to one week before the appointment',
+      'Cancellation is not allowed',
+      'امكانية الغاء الحجز في أي وقت قبل الموعد',
+      'امكانية الغاء الحجز حتى قبل 48 ساعة من الموعد',
+      'امكانية الغاء الحجز حتى قبل 72 ساعة من الموعد',
+      'امكانية الغاء الحجز حتى قبل اسبوع من الموعد',
+      'لا يمكن الغاء الحجز'
+    ];
+    return arr.indexOf(text);
+}
 
 const isValidContacts = (contacts) => {
 
@@ -813,6 +835,8 @@ const isValidContacts = (contacts) => {
 
 const isValidDetails = (dtl) => {
 
+    return true;
+
     if(!dtl) return false;
 
     if(dtl.insurance !== false && dtl.insurance !== true) return false;
@@ -833,6 +857,24 @@ const isValidDetails = (dtl) => {
     };
 
     return true;
+};
+
+const isValidEnData = (enData) => {
+
+  if(!enData) return true;
+
+  if(enData.titleEN && !isValidText(enData.titleEN)) return false;
+  if(enData.descEN && !isValidText(enData.descEN)) return false;
+  if(enData.neighbourEN && !isValidText(enData.neighbourEN)) return false;
+  if(enData.customerTypeEN && !isValidText(enData.customerTypeEN)) return false; 
+  if(enData.english_details){
+    enData.english_details.forEach(element => {
+      if(!isValidText(element?.enName) || !isValidText(element?.arName)) return false;
+    });
+  };
+
+  return true;
+
 };
 
 const isValidTerms = (trms) => {
@@ -937,6 +979,7 @@ module.exports = {
     deleteTokens, 
     generateRandomCode,
     sendToEmail,
+    getCancellationsIDS,
     isValidPassword,
     isValidEmail,
     isValidUsername,
@@ -944,6 +987,7 @@ module.exports = {
     isValidContacts,
     isValidNumber,
     isValidDetails,
+    isValidEnData,
     isValidTerms,
     arrayLimitSchema,
     updatePropertyRating,

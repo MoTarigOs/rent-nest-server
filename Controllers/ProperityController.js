@@ -2,8 +2,9 @@ const mongoose = require('mongoose');
 const Property = require('../Data/PropertyModel.js');
 const Report = require('../Data/ReportModel.js');
 const User = require('../Data/UserModel.js');
-const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts } = require('../utils/logic.js');
-const sortLatDistance = 0.5;
+const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts, isValidEnData } = require('../utils/logic.js');
+const sortLatDistance = 0.1;
+const sortLongDistance = 0.3;
 
 const getProperties = async(req, res) => {
 
@@ -13,8 +14,32 @@ const getProperties = async(req, res) => {
 
         const { 
             city, type_is_vehicle, specific, price_range, 
-            min_rate, text, sort, long, lat, skip
+            min_rate, text, sort, long, lat, skip, categories_array,
+            quickFilter, isEnglish,
+            unit,
+            bedroomFilter,
+            capacityFilter,
+            poolFilter,
+            customers,
+            bathroomFacilities,
+            bathroomsNum,
+            companiansFilter,
+            kitchenFilter
         } = req.query;
+
+        // console.log('min_rate: ', min_rate);
+        // console.log('quickFilter: ', quickFilter);
+        // console.log('unit: ', unit);
+        // console.log('bedroomFilter: ', bedroomFilter);
+        // console.log('capacityFilter: ', capacityFilter);
+        // console.log('poolFilter: ', poolFilter);
+        // console.log('customers: ', customers);
+        // console.log('bathroomFacilities: ', bathroomFacilities);
+        // console.log('bathroomsNum: ', bathroomsNum);
+        // console.log('companiansFilter: ', companiansFilter);
+        // console.log('kitchenFilter: ', kitchenFilter);
+
+        // return res.status(400).json({ message: 'error' });
 
         const id = req?.user?.id;
 
@@ -24,21 +49,26 @@ const getProperties = async(req, res) => {
 
         if(specific && !allowedSpecificCatagory.includes(specific)) return res.status(400).json({ message: 'specific error' });
         
-        if(price_range &&
-            (!isValidText(price_range) 
-            || !isValidNumber(Number(price_range.split(',')[0])) 
-            || !isValidNumber(Number(price_range.split(',')[1])))){
-                return res.status(400).json({ message: 'price error' });
+        if(categories_array){
+            categories_array.forEach(element => {
+                if(!allowedSpecificCatagory.includes(element))
+                    return res.status(400).json({ message: 'categories error' });
+            });
         }
 
-        if(min_rate && (typeof Number(min_rate) !== 'number' || Number(min_rate) > 5 || Number(min_rate) < 0)){
-            return res.status(400).json({ message: 'rate error' });
+        if(price_range &&
+            (!isValidText(price_range) 
+            || !isValidNumber(Number(price_range.split(',')[0]), null, null, 'start-zero') 
+            || !isValidNumber(Number(price_range.split(',')[1])))){
+                return res.status(400).json({ message: 'price error' });
         }
 
         if(text && !isValidText(text)) return res.status(400).json({ message: 'text error' });
 
         const filterObj = () => {
-            
+
+            // if(unitCode && isValidText(unitCode)) return { unit: unitCode };
+
             let obj = {};
             
             let secondObj = null;
@@ -55,23 +85,71 @@ const getProperties = async(req, res) => {
 
             if(type_is_vehicle) obj.type_is_vehicle = type_is_vehicle;
 
-            if(allowedSpecificCatagory.includes(specific)) 
-                obj.specific_catagory = specific;
+            if(isValidNumber(Number(min_rate), null, null, 'start-zero'))
+                obj = { ...obj, 'ratings.val': { $gte: Number(min_rate) } };
 
-            if(price_range) obj.price_range = { $gte: Number(price_range.split(',')[0]), $lte: Number(price_range.split(',')[1])};
+            if(quickFilter && isValidText(quickFilter)){
+                if(quickFilter.includes('free-cancel')) obj.cancellation = { $ne: [4, 9] };
+                if(quickFilter.includes('no-insurance')) obj = { ...obj, 'details.insurance' : false };
+                if(quickFilter.includes('discounts')) obj = { ...obj, 'discount.percentage' : { $gte: 1 } };
+            }
+
+            if(bedroomFilter?.length > 0 && isValidText(bedroomFilter)){
+                let bedroomObj = {};
+                if(bedroomFilter.split(",")?.at(0)) bedroomObj.num = { $gte: bedroomFilter.split(",")?.at(0) };
+                if(bedroomFilter.split(",")?.at(1)) bedroomObj.single_beds = { $gte: bedroomFilter.split(",")?.at(1) };
+                if(bedroomFilter.split(",")?.at(2)) bedroomObj.double_beds = { $gte: bedroomFilter.split(",")?.at(2) };
+                if(Object.keys(bedroomObj)?.length > 0)
+                    obj = { ...obj, 'details.rooms': { bedroomObj } };
+            }
+
+            if(capacityFilter && isValidNumber(Number(capacityFilter.split(',')?.at(0)), null, null, 'start-zero')){
+                obj.capacity = { 
+                    $gte: Number(capacityFilter.split(',')?.at(0)),
+                    $lte: isValidNumber(Number(capacityFilter.split(',')?.at(1))) ? Number(capacityFilter.split(',')?.at(1)) : undefined
+                }
+            }
+
+            if(poolFilter && isValidText(poolFilter)) 
+                obj = { ...obj, 'details.pool.companians': poolFilter.split(',') }
+            
+            if(customers && isValidText(customers)){
+                if(!isEnglish){
+                    obj.customer_type = customers.split(',');
+                } else {
+                    obj = { ...obj, 'en_data.customerTypeEN': customers.split(',') };
+                }
+            }
+
+            if(bathroomFacilities && isValidText(bathroomFacilities))
+                obj = { ...obj, 'details.bathrooms.companians': bathroomFacilities.split(',') };
+
+            if(bathroomsNum && isValidNumber(Number(bathroomsNum)))
+                obj = { ...obj, 'details.bathrooms.num': { $gte: Number(bathroomsNum) } };
+
+            if(companiansFilter && isValidText(companiansFilter))
+                obj = { ...obj, 'details.facilities': companiansFilter.split(',') };
+
+            if(kitchenFilter && isValidText(kitchenFilter))
+                obj = { ...obj, 'details.kitchen': kitchenFilter.split(',')[0] };
+
+            if(categories_array){
+                obj.specific_catagory = categories_array;
+            } else if(specific){
+                obj.specific_catagory = specific;
+            }
+            
+            if(price_range) obj.price = { $gte: Number(price_range.split(',')[0]), $lte: Number(price_range.split(',')[1])};
 
             if(type_is_vehicle) obj.type_is_vehicle = type_is_vehicle;
 
-            if(min_rate)
-                secondObj = { ...obj, 'ratings.val': { $gte: Number(min_rate) } };
-
-            if(id && mongoose.Types.ObjectId.isValid(id)) {
-                if(secondObj){
-                    secondObj = { ...secondObj, owner_id: { $ne: id } };
-                } else {
-                    secondObj = { ...obj, owner_id: { $ne: id } };
-                }
-            }    
+            // if(id && mongoose.Types.ObjectId.isValid(id)) {
+            //     if(secondObj){
+            //         secondObj = { ...secondObj, owner_id: { $ne: id } };
+            //     } else {
+            //         secondObj = { ...obj, owner_id: { $ne: id } };
+            //     }
+            // }    
             
             if(text) {
                 if(secondObj){
@@ -148,7 +226,7 @@ const getProperties = async(req, res) => {
             
         const properties = await Property.find(filterObj())
             .limit(300).sort(sortObj()).skip(skipObj() * 300)
-            .select('_id map_coordinates images title description booked_days ratings city neighbourhood price discount specific_catagory'); 
+            .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN price discount specific_catagory'); 
 
         if(!properties || properties.length <= 0) return res.status(404).json({ message: 'not exist error' });
         
@@ -176,17 +254,18 @@ const createProperty = async(req, res) => {
         const { 
             type_is_vehicle, specific_catagory, title, description, city, 
             neighbourhood, map_coordinates, price, details, 
-            terms_and_conditions, area, contacts
+            terms_and_conditions, area, contacts, capacity, customer_type, 
+            en_data, cancellation
         } = req.body;
 
         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'login error' });
 
         if(!isValidText(specific_catagory) || !allowedSpecificCatagory.includes(specific_catagory)) return res.status(400).json({ message: 'specific catagory error' });
 
-        if(!isValidText(title, 5)) return res.status(400).json({ message: 'title error' });
-        
-        if(!isValidText(description, 25)) return res.status(400).json({ message: 'desc error' });
-        
+        if(!isValidText(title)) return res.status(400).json({ message: 'title error' });
+
+        if(!isValidText(description)) return res.status(400).json({ message: 'desc error' });
+
         if(!isValidText(city) || !citiesArray.find(i => i.value === city)) return res.status(400).json({ message: 'city error' });
 
         if(neighbourhood && !isValidText(neighbourhood)) return res.status(400).json({ message: 'neighbourhood error' });
@@ -202,6 +281,14 @@ const createProperty = async(req, res) => {
         if(area && !isValidNumber(Number(area))) return res.status(400).json({ message: 'area error' });
 
         if(contacts && !isValidContacts(contacts)) return res.status(400).json({ message: 'contacts error' });
+
+        if(capacity && !isValidNumber(capacity, null, 0)) return res.status(400).json({ message: 'capacity error' });
+
+        if(customer_type && !isValidText(customer_type)) return res.status(400).json({ message: 'capacity error' });
+        
+        if(cancellation && !isValidText(cancellation)) return res.status(400).json({ message: 'capacity error' });
+
+        if(en_data && !isValidEnData(en_data)) return res.status(400).json({ message: 'enDetails error' });
 
         const getObj = () => {
             const obj = {
@@ -219,9 +306,13 @@ const createProperty = async(req, res) => {
                 details,
                 terms_and_conditions,
                 area,
-                contacts
+                contacts,
+                capacity,
+                customer_type,
+                en_data,
+                cancellation: getCancellationsIDS(cancellation)
             };
-            if(isValidPoint(map_coordinates[0], map_coordinates[1])) obj.map_coordinates = map_coordinates;
+            if(map_coordinates[0] && map_coordinates[1] && isValidPoint(map_coordinates[0], map_coordinates[1])) obj.map_coordinates = map_coordinates;
             return obj;
 
         }
