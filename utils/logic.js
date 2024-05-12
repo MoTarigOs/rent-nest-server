@@ -11,7 +11,7 @@ const testChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz -_.,+=!~
 const validator = require('validator');
 
 const allowedSpecificCatagory = [
-    'farm', 'apartment', 'resort', 'student', 
+    'farm', 'apartment', 'resort', 'students', 
     'transports'
 ];
 
@@ -968,6 +968,25 @@ const generateSecretKey = (userId, username) => {
 
 };
 
+const getUnitCode = async() => {
+  try {
+    const maxUnitCode = await Property.find({ unit_code: { $gte: 0 } }).sort({ unit_code: -1 }).limit(1).select('unit_code');
+    console.log(maxUnitCode);
+    if(!maxUnitCode?.length > 0){
+      const p = await Property.findOne({ unit_code: 1 }).select('_id unit_code');
+      if(!p){ 
+        return 1;
+      } else {
+        return null;
+      }
+    }
+    if(!maxUnitCode[0]?.unit_code || typeof maxUnitCode[0].unit_code !== 'number') return null;
+    return maxUnitCode[0].unit_code + 1;
+  } catch (err) {
+    return null;
+  }
+};
+
 module.exports = {
     JordanBoundryPoints,
     citiesArray,
@@ -992,5 +1011,6 @@ module.exports = {
     arrayLimitSchema,
     updatePropertyRating,
     isValidBookDateFormat,
-    generateSecretKey
+    generateSecretKey,
+    getUnitCode
 };

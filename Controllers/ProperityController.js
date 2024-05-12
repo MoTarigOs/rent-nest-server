@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Property = require('../Data/PropertyModel.js');
 const Report = require('../Data/ReportModel.js');
 const User = require('../Data/UserModel.js');
-const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts, isValidEnData } = require('../utils/logic.js');
+const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts, isValidEnData, getUnitCode } = require('../utils/logic.js');
 const sortLatDistance = 0.1;
 const sortLongDistance = 0.3;
 
@@ -14,9 +14,9 @@ const getProperties = async(req, res) => {
 
         const { 
             city, type_is_vehicle, specific, price_range, 
-            min_rate, text, sort, long, lat, skip, categories_array,
+            min_rate, text, sort, long, lat, skip, categories,
             quickFilter, isEnglish,
-            unit,
+            unitCode,
             bedroomFilter,
             capacityFilter,
             poolFilter,
@@ -24,12 +24,13 @@ const getProperties = async(req, res) => {
             bathroomFacilities,
             bathroomsNum,
             companiansFilter,
-            kitchenFilter
+            kitchenFilter,
+            vehicleType
         } = req.query;
 
         // console.log('min_rate: ', min_rate);
         // console.log('quickFilter: ', quickFilter);
-        // console.log('unit: ', unit);
+        // console.log('categories: ', categories);
         // console.log('bedroomFilter: ', bedroomFilter);
         // console.log('capacityFilter: ', capacityFilter);
         // console.log('poolFilter: ', poolFilter);
@@ -37,7 +38,9 @@ const getProperties = async(req, res) => {
         // console.log('bathroomFacilities: ', bathroomFacilities);
         // console.log('bathroomsNum: ', bathroomsNum);
         // console.log('companiansFilter: ', companiansFilter);
-        // console.log('kitchenFilter: ', kitchenFilter);
+        console.log('vehicleType: ', vehicleType);
+
+        // console.log('reached');
 
         // return res.status(400).json({ message: 'error' });
 
@@ -49,8 +52,8 @@ const getProperties = async(req, res) => {
 
         if(specific && !allowedSpecificCatagory.includes(specific)) return res.status(400).json({ message: 'specific error' });
         
-        if(categories_array){
-            categories_array.forEach(element => {
+        if(categories){
+            categories?.split(',')?.forEach(element => {
                 if(!allowedSpecificCatagory.includes(element))
                     return res.status(400).json({ message: 'categories error' });
             });
@@ -67,7 +70,7 @@ const getProperties = async(req, res) => {
 
         const filterObj = () => {
 
-            // if(unitCode && isValidText(unitCode)) return { unit: unitCode };
+            if(unitCode && isValidNumber(Number(unitCode), null, null, 'start-zero')) return { unit_code: Number(unitCode) };
 
             let obj = {};
             
@@ -75,7 +78,7 @@ const getProperties = async(req, res) => {
 
             obj.visible = true;
 
-            obj.checked = true;
+            // obj.checked = true;
 
             obj.isRejected = false;
 
@@ -89,18 +92,18 @@ const getProperties = async(req, res) => {
                 obj = { ...obj, 'ratings.val': { $gte: Number(min_rate) } };
 
             if(quickFilter && isValidText(quickFilter)){
-                if(quickFilter.includes('free-cancel')) obj.cancellation = { $ne: [4, 9] };
+                if(quickFilter.includes('free-cancel')) obj.cancellation = [0,1,2,3,5,6,7,8];
                 if(quickFilter.includes('no-insurance')) obj = { ...obj, 'details.insurance' : false };
                 if(quickFilter.includes('discounts')) obj = { ...obj, 'discount.percentage' : { $gte: 1 } };
             }
 
             if(bedroomFilter?.length > 0 && isValidText(bedroomFilter)){
-                let bedroomObj = {};
-                if(bedroomFilter.split(",")?.at(0)) bedroomObj.num = { $gte: bedroomFilter.split(",")?.at(0) };
-                if(bedroomFilter.split(",")?.at(1)) bedroomObj.single_beds = { $gte: bedroomFilter.split(",")?.at(1) };
-                if(bedroomFilter.split(",")?.at(2)) bedroomObj.double_beds = { $gte: bedroomFilter.split(",")?.at(2) };
-                if(Object.keys(bedroomObj)?.length > 0)
-                    obj = { ...obj, 'details.rooms': { bedroomObj } };
+                if(isValidNumber(Number(bedroomFilter.split(",")?.at(0)))) 
+                    obj = { ...obj, 'details.rooms.num': { $gte: Number(bedroomFilter?.split(",")?.at(0)) } };
+                if(isValidNumber(Number(bedroomFilter.split(",")?.at(1)))) 
+                    obj = { ...obj, 'details.rooms.single_beds': { $gte: Number(bedroomFilter?.split(",")?.at(1)) } };
+                if(isValidNumber(Number(bedroomFilter.split(",")?.at(2)))) 
+                    obj = { ...obj, 'details.rooms.double_beds': { $gte: Number(bedroomFilter?.split(",")?.at(2)) } };
             }
 
             if(capacityFilter && isValidNumber(Number(capacityFilter.split(',')?.at(0)), null, null, 'start-zero')){
@@ -111,7 +114,7 @@ const getProperties = async(req, res) => {
             }
 
             if(poolFilter && isValidText(poolFilter)) 
-                obj = { ...obj, 'details.pool.companians': poolFilter.split(',') }
+                obj = { ...obj, 'details.pool.companians': { $in: poolFilter.split(',') } }
             
             if(customers && isValidText(customers)){
                 if(!isEnglish){
@@ -122,21 +125,26 @@ const getProperties = async(req, res) => {
             }
 
             if(bathroomFacilities && isValidText(bathroomFacilities))
-                obj = { ...obj, 'details.bathrooms.companians': bathroomFacilities.split(',') };
+                obj = { ...obj, 'details.bathrooms.companians': { $in: bathroomFacilities.split(',') } };
 
             if(bathroomsNum && isValidNumber(Number(bathroomsNum)))
                 obj = { ...obj, 'details.bathrooms.num': { $gte: Number(bathroomsNum) } };
 
             if(companiansFilter && isValidText(companiansFilter))
-                obj = { ...obj, 'details.facilities': companiansFilter.split(',') };
+                obj = { ...obj, 'details.facilities': { $in: companiansFilter.split(',') } };
 
             if(kitchenFilter && isValidText(kitchenFilter))
-                obj = { ...obj, 'details.kitchen': kitchenFilter.split(',')[0] };
+                obj = { ...obj, 'details.kitchen.companians': { $in: kitchenFilter.split(',') } };
 
-            if(categories_array){
-                obj.specific_catagory = categories_array;
-            } else if(specific){
-                obj.specific_catagory = specific;
+            if(type_is_vehicle){
+                if(isValidNumber(Number(vehicleType), null, null, 'start-zero'))
+                    obj.vehicle_type = Number(vehicleType);
+            } else {
+                if(categories){
+                    obj.specific_catagory = categories.split(',');
+                } else if(specific){
+                    obj.specific_catagory = specific;
+                }
             }
             
             if(price_range) obj.price = { $gte: Number(price_range.split(',')[0]), $lte: Number(price_range.split(',')[1])};
@@ -187,9 +195,9 @@ const getProperties = async(req, res) => {
                 }
             }
 
-            console.log('secondOb: ', secondObj);
+            // console.log('secondOb: ', secondObj);
 
-            console.log('obj: ', obj);
+            // console.log('obj: ', obj);
 
             if(secondObj){
                 return secondObj;
@@ -197,7 +205,7 @@ const getProperties = async(req, res) => {
                 return obj;
             }
 
-        }
+        };
 
         const sortObj = () => {
             switch(sort){
@@ -223,6 +231,8 @@ const getProperties = async(req, res) => {
             return Math.round(Number(skip));
 
         };
+
+        console.log(filterObj());
             
         const properties = await Property.find(filterObj())
             .limit(300).sort(sortObj()).skip(skipObj() * 300)
@@ -255,7 +265,7 @@ const createProperty = async(req, res) => {
             type_is_vehicle, specific_catagory, title, description, city, 
             neighbourhood, map_coordinates, price, details, 
             terms_and_conditions, area, contacts, capacity, customer_type, 
-            en_data, cancellation
+            en_data, cancellation, vehicleType
         } = req.body;
 
         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'login error' });
@@ -286,9 +296,17 @@ const createProperty = async(req, res) => {
 
         if(customer_type && !isValidText(customer_type)) return res.status(400).json({ message: 'capacity error' });
         
-        if(cancellation && !isValidText(cancellation)) return res.status(400).json({ message: 'capacity error' });
+        if(cancellation && !isValidNumber(Number(cancellation), null, null, 'start-zero') && cancellation >= 0 && cancellation <= 10) 
+            return res.status(400).json({ message: 'cancaellation error' });
 
         if(en_data && !isValidEnData(en_data)) return res.status(400).json({ message: 'enDetails error' });
+
+        if(vehicleType && !isValidNumber(Number(vehicleType), null, null, 'start-zero'))
+            return res.status(400).json({ message: 'vehicleType error' });
+            
+        const unitCode = await getUnitCode();
+
+        console.log('unitCode: ', unitCode);
 
         const getObj = () => {
             const obj = {
@@ -310,11 +328,12 @@ const createProperty = async(req, res) => {
                 capacity,
                 customer_type,
                 en_data,
-                cancellation: getCancellationsIDS(cancellation)
+                cancellation: cancellation
             };
+            if(unitCode) obj.unit_code = unitCode;
             if(map_coordinates[0] && map_coordinates[1] && isValidPoint(map_coordinates[0], map_coordinates[1])) obj.map_coordinates = map_coordinates;
+            if(type_is_vehicle) obj.vehicle_type = vehicleType;
             return obj;
-
         }
         
         const property = await Property.create(getObj());

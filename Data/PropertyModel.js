@@ -80,6 +80,12 @@ const propertyShema = mongoose.Schema({
         max: 1000000000000000,
         required: [true, "price error"]
     },
+    unit_code: {
+        type: Number,
+        unique: [true, 'unit code error'],
+        sparse: true
+    },
+    vehicle_type: Number,
     customer_type: { type: String },
     capacity: { type: Number },
     cancellation: { type: Number },

@@ -481,7 +481,7 @@ const logoutUser = asyncHandler(async(req, res) => {
 
     res.clearCookie('_a_t');    
     res.clearCookie('_r_t');
-    //res.cookie('is_logined', 'false', { maxAge: 100000000000000 });
+    res.cookie('is_logined', 'false', { maxAge: 100000000000000 });
     res.clearCookie('csrf_token');
     res.clearCookie('csrf-token');
     res.status(201);

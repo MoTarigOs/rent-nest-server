@@ -10,6 +10,7 @@ const rateLimitMiddleware = require('./middleware/RateLimiter.js');
 const tooBusy = require('toobusy-js');
 const helmet = require('helmet');
 const buildLogger = require('./Logger/ProdLogger.js');
+const { getUnitCode } = require('./utils/logic.js');
 const logger = buildLogger();
 
 connectDB();
@@ -42,6 +43,7 @@ app.use("/admin", require("./Routers/AdminRouter.js"));
 app.use((err, req, res, next) => {
     res.status(500).json({ message: 'server error' });
 });
+
 
 //handle errors & exceptions, with logger
 process.on("uncaughtException", (err) => {
