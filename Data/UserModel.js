@@ -4,9 +4,10 @@ const { arrayLimitSchema } = require('../utils/logic');
 const userSchema = mongoose.Schema({
     username: {
         type: String,
-        required: [true, "username is required"],
-        minLength: 2,
-        maxLength: 45
+        required: [true, "username is required"]
+    },
+    usernameEN: {
+        type: String
     },
     email: {
         type: String,
@@ -54,6 +55,7 @@ const userSchema = mongoose.Schema({
         type: Number, max: 5, min: 0, default: 0
     },
     reviews_num: Number,
+    num_of_units: Number,
     blocked: {
         date_of_block: {type: Number},
         block_duration: {type: Number},
