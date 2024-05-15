@@ -754,7 +754,8 @@ const isValidNumber = (num, maxLength, minLength, type) => {
 };
 
 const contactsPlatforms = [
-  'whatsapp', 'facebook', 'instagram', 'youtube', 'linkedin', 'snapchat', 'telegram', 'gmail'
+  'whatsapp', 'facebook', 'instagram', 'youtube', 'telegram',
+  'snapchat', 'linkedin', 'tiktok', 'x-twitter'
 ];
 
 const getCancellationsIDS = (text) => {
@@ -779,51 +780,67 @@ const isValidContacts = (contacts) => {
 
     const contact = contacts[i];
 
-    if(!contactsPlatforms.includes(contact.platform)) return false;
+    if(!contactsPlatforms.includes(contact?.platform)) return false;
 
     let origin;
 
     try {
-        origin = (new URL(contact.val)).origin;
+        origin = (new URL(contact.val))?.origin;
     } catch(err) {
         if(contact.platform !== 'whatsapp') return false;
         if(!isValidNumber(Number(contact.val))) return false;
     }
 
     switch(contact.platform){
-        case 'youtube':
-            if(origin !== 'https://www.youtube.com' && origin !== 'https://youtu.be'){
-                return false;
-            }
-            break;
-        case 'whatsapp':
-            if(origin && origin !== 'https://wa.me'){
-                return false;
-            } else if(!origin && !isValidNumber(Number(contact.val))){
-                return false;
-            }
-            break;
-        case 'facebook':
-            if(origin !== 'https://www.youtube.com' && origin !== 'https://youtu.be'){
-                return false;
-            }
-        case 'snapchat':
-            if(origin !== 'https://www.youtube.com' && origin !== 'https://youtu.be'){
-                return false;
-            }
-            break;
-        case 'linkedin':
-            if(origin !== 'https://www.youtube.com' && origin !== 'https://youtu.be'){
-                return false;
-            }
-            break;
-        case 'instagram':
-            if(origin !== 'https://www.youtube.com' && origin !== 'https://youtu.be'){
-                return false;
-            }
-            break;
-        default:
+      case 'youtube':
+        if(origin !== 'https://www.youtube.com' && origin !== 'https://youtu.be'){
             return false;
+        }
+        break;
+    case 'whatsapp':
+        if(origin && origin !== 'https://wa.me'){
+            return false;
+        } else if(!origin && !isValidNumber(Number(contact.val))){
+            return false;
+        }
+        break;
+    case 'telegram':
+        if(origin !== 'https://t.me'){
+            return false;
+        }
+        break;
+    case 'facebook':
+        if(origin !== 'https://www.facebook.com'){
+            return false;
+        }
+        break;
+    case 'snapchat':
+        if(origin !== 'https://www.snapchat.com' && origin !== 'https://youtu.be'){
+            return false;
+        }
+        break;
+    case 'linkedin':
+        if(origin !== 'https://www.linkedin.com'){
+            return false;
+        }
+        break;
+    case 'instagram':
+        if(origin !== 'https://www.instagram.com'){
+            return false;
+        }
+        break;
+    case 'x-twitter':
+        if(origin !== 'https://twitter.com' && origin !== 'https://www.twitter.com' && origin !== 'https://www.x.com' && origin !== 'https://x.com'){
+            return false;
+        }
+        break;
+    case 'tiktok':
+        if(origin !== 'https://www.tiktok.com'){
+            return false;
+        }
+        break;
+    default:
+        return false;
     }
 
   }
@@ -895,7 +912,7 @@ const arrayLimitSchema = (val) => {
     return true;
 };
 
-const updatePropertyRating = async(propertyId, ratingsObj, addScore, isNew, pastRateObj) => {
+const updatePropertyRating = async(propertyId, ratingsObj, addScore, isNew, pastRateObj, ownerId) => {
 
     try {
         
@@ -917,6 +934,8 @@ const updatePropertyRating = async(propertyId, ratingsObj, addScore, isNew, past
           ratings: newRatingsObj
         }, { new: true });
 
+        await updateHostEvaluation(ownerId);
+
         return newProp;
 
     } catch (err) {
@@ -924,6 +943,16 @@ const updatePropertyRating = async(propertyId, ratingsObj, addScore, isNew, past
         return null;
     }
 
+};
+
+const updatePropertyRatingRemovedReview = async(prop) => {
+  try {
+    
+    await updateHostEvaluation(prop.owner_id, true, reduceScore);
+  } catch (err) {
+    console.log(err);
+    return null;
+  }
 };
 
 const isValidBookDateFormat = (date) => {
@@ -987,6 +1016,22 @@ const getUnitCode = async() => {
   }
 };
 
+const updateHostEvaluation = async(id, isRemove) => {
+  try {
+    let updateObj = {};
+    if(isRemove){
+      updateObj = { reviews_num: { $inc: -1 } };
+    } else {
+      updateObj = { reviews_num: { $inc: 1 } };
+    }
+    const updated = await User.findOneAndUpdate({ _id: id }, updateObj);
+    return;
+  } catch (err) {
+    console.log(err);
+    return;
+  }
+};
+
 module.exports = {
     JordanBoundryPoints,
     citiesArray,
@@ -1012,5 +1057,6 @@ module.exports = {
     updatePropertyRating,
     isValidBookDateFormat,
     generateSecretKey,
-    getUnitCode
+    getUnitCode,
+    updatePropertyRatingRemovedReview
 };

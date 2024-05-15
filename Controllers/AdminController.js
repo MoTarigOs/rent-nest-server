@@ -5,7 +5,7 @@ const ErrorModel = require('../Data/ErrorModel.js');
 const VerCode = require('../Data/VerificationCode.js');
 const WL = require('../Data/WhiteList.js');
 const mongoose = require('mongoose');
-const { isValidText, isValidEmail, isValidNumber } = require('../utils/logic.js');
+const { isValidText, isValidEmail, isValidNumber, updatePropertyRatingRemovedReview } = require('../utils/logic.js');
 
 const getReports = async(req, res) => {
 
@@ -329,7 +329,9 @@ const deleteReviewsAdmin = async(req, res) => {
 
         const property = await Property.findOneAndUpdate({ _id: propertyId }, {
             $pull: { reviews: { writer_id: { $in: writerIds } } }
-        }, { new: true });
+        });
+
+        await updatePropertyRatingRemovedReview(property);
 
         if(!property) return res.status(403).json({ message: 'access error' });
 

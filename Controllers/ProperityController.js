@@ -37,7 +37,7 @@ const getProperties = async(req, res) => {
         // console.log('customers: ', customers);
         // console.log('bathroomFacilities: ', bathroomFacilities);
         // console.log('bathroomsNum: ', bathroomsNum);
-        // console.log('companiansFilter: ', companiansFilter);
+        console.log('type_is_vehicle: ', type_is_vehicle);
         console.log('vehicleType: ', vehicleType);
 
         // console.log('reached');
@@ -85,8 +85,6 @@ const getProperties = async(req, res) => {
             obj.is_able_to_book = true;
 
             if(city?.length > 0) obj.city = city;
-
-            if(type_is_vehicle) obj.type_is_vehicle = type_is_vehicle;
 
             if(isValidNumber(Number(min_rate), null, null, 'start-zero'))
                 obj = { ...obj, 'ratings.val': { $gte: Number(min_rate) } };
@@ -136,7 +134,8 @@ const getProperties = async(req, res) => {
             if(kitchenFilter && isValidText(kitchenFilter))
                 obj = { ...obj, 'details.kitchen.companians': { $in: kitchenFilter.split(',') } };
 
-            if(type_is_vehicle){
+            if(type_is_vehicle === 'true'){
+                obj.type_is_vehicle = true;
                 if(isValidNumber(Number(vehicleType), null, null, 'start-zero'))
                     obj.vehicle_type = Number(vehicleType);
             } else {
@@ -148,8 +147,6 @@ const getProperties = async(req, res) => {
             }
             
             if(price_range) obj.price = { $gte: Number(price_range.split(',')[0]), $lte: Number(price_range.split(',')[1])};
-
-            if(type_is_vehicle) obj.type_is_vehicle = type_is_vehicle;
 
             // if(id && mongoose.Types.ObjectId.isValid(id)) {
             //     if(secondObj){
@@ -240,6 +237,8 @@ const getProperties = async(req, res) => {
 
         if(!properties || properties.length <= 0) return res.status(404).json({ message: 'not exist error' });
         
+        console.log(properties.length);
+
         return res.status(200).json(properties);
 
     } catch (err) {
@@ -342,6 +341,10 @@ const createProperty = async(req, res) => {
 
         console.log('property id: ', property._id);
 
+        await User.updateOne({ _id: id }, {
+            num_of_units: { $inc: 1 }
+        });
+
         return res.status(201).json({
             id: property._id
         });
@@ -376,7 +379,55 @@ const getProperty = async(req, res) => {
 
 };
 
+const getPropertyByUnitCode = async(req, res) => {
+
+    try {
+
+        const unit = req?.params?.unit;
+
+        if(!unit || !isValidNumber(Number(unit), null, null, 'start-zero')) return res.status(400).json({ message: 'invalid unit code' });
+
+        const property = await Property.findOne({ unit_code: unit }).select('_id');
+
+        if(!property) return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(200).json({ id: property._id });
+        
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ message: 'server error' });
+    };
+
+};
+
 const getOwnerProperty = async(req, res) => {
+
+    try {
+
+        console.log('owner props');
+
+        if(!req || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { userId } = req.params;
+
+        if(!mongoose.Types.ObjectId.isValid(userId)) return res.status(400).json({ message: 'request error' });
+
+        const properties = await Property.find({ owner_id: userId }).limit(300)
+            .select('_id images title checked visible isRejected description reviews ratings city neighbourhood price discount')
+            .sort({ createdAt: -1 });
+
+        if(!properties || properties.length <= 0) return res.status(400).json({ message: 'not exist error' });
+
+        return res.status(200).json(properties);
+
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: err.message });
+    }
+
+};
+
+const getHostDetails = async(req, res) => {
 
     try {
 
@@ -386,13 +437,9 @@ const getOwnerProperty = async(req, res) => {
 
         if(!mongoose.Types.ObjectId.isValid(userId)) return res.status(400).json({ message: 'request error' });
 
-        const properties = await Property.find({ owner_id: userId }).limit(300)
-            .select('_id images title checked visible isRejected description ratings city neighbourhood price discount')
-            .sort({ createdAt: -1 });
+        const host = await User.findOne({ _id: userId }).select('username usernameEN num_of_units rating_score reviews_num createdAt');
 
-        if(!properties || properties.length <= 0) return res.status(400).json({ message: 'not exist error' });
-
-        return res.status(200).json(properties);
+        return res.status(200).json(host);
 
     } catch (err) {
         console.log(err);
@@ -431,7 +478,7 @@ const addReview = async(req, res) => {
                 username: username,
                 text, user_rating: Number(user_rating).toFixed(2)
             }}
-        }).select('_id reviews ratings');
+        }).select('_id reviews ratings owner_id');
 
         if(!property){
 
@@ -441,11 +488,11 @@ const addReview = async(req, res) => {
                     username: username,
                     text, user_rating: Number(user_rating).toFixed(2)
                 }}
-            }).select('_id reviews ratings');
+            }).select('_id reviews ratings owner_id');
 
             if(!inserted) return res.status(403).json({ message: 'access error' });
 
-            const updatedInsertedProp = await updatePropertyRating(propertyId, inserted.ratings, user_rating, true);    
+            const updatedInsertedProp = await updatePropertyRating(propertyId, inserted.ratings, user_rating, true, null, inserted.owner_id);    
         
             return res.status(201).json(updatedInsertedProp);
 
@@ -454,7 +501,8 @@ const addReview = async(req, res) => {
                 propertyId, 
                 property.ratings, 
                 user_rating, false, 
-                property.reviews.find(i => i?.writer_id?.toString() === id)
+                property.reviews.find(i => i?.writer_id?.toString() === id), 
+                property.owner_id
             );
             return res.status(201).json(updatedProp);
         }         
@@ -696,7 +744,9 @@ module.exports = {
     getProperties,
     createProperty,
     getProperty,
+    getPropertyByUnitCode,
     getOwnerProperty,
+    getHostDetails,
     addReview,
     editProperty,
     hideProperty,

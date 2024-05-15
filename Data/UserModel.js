@@ -50,6 +50,10 @@ const userSchema = mongoose.Schema({
         }],
         validate: [arrayLimitSchema, 'array limit error']
     },
+    rating_score: {
+        type: Number, max: 5, min: 0, default: 0
+    },
+    reviews_num: Number,
     blocked: {
         date_of_block: {type: Number},
         block_duration: {type: Number},

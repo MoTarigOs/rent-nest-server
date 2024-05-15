@@ -760,9 +760,9 @@ const editUser = async(req, res) => {
 
         if(!req || !req.user || !req.body) return res.status(400).json({ message: 'request error' });
 
-        const { id, username } = req.user;
+        const { id } = req.user;
 
-        const { updateUsername, updateAddress, updatePhone } = req.body;
+        const { updateUsername, updateAddress, updatePhone, updateUsernameEN } = req.body;
 
         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'request error' });
         
@@ -771,12 +771,17 @@ const editUser = async(req, res) => {
         if(updateAddress && !isValidText(updateAddress)) return res.status(400).json({ message: 'address error' });
 
         if(updatePhone && !isValidText(updatePhone)) return res.status(400).json({ message: 'phone error' });
-    
-        const user = await User.findOneAndUpdate({ _id: id, email_verified: true }, {
-            username: updateUsername ? updateUsername : username,
-            address: updateAddress,
-            phone: updatePhone
-        });
+        
+        if(updateUsernameEN && !isValidText(updateUsernameEN)) return res.status(400).json({ message: 'phone error' });
+
+        let updateObj = {};
+
+        if(updateAddress) updateObj.address = updateAddress;
+        if(updatePhone) updateObj.address = updatePhone;
+        if(updateUsername) updateObj.address = updateUsername;
+        if(updateUsernameEN) updateObj.address = updateUsernameEN;
+
+        const user = await User.findOneAndUpdate({ _id: id, email_verified: true }, updateObj);
 
         if(!user) return res.status(400).json({ message: 'access error' });
         
