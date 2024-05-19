@@ -141,7 +141,8 @@ const propertyShema = mongoose.Schema({
             writer_id: { type: mongoose.Types.ObjectId },
             username: { type: String },
             text: { type: String, maxLength: 500 },
-            user_rating: { type: Number, maxLength: 5 }
+            user_rating: { type: Number, max: 5 },
+            updatedAt: Date
         }],
         default: [],
         validate: [arrayLimitSchema, 'array limit error']

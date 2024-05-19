@@ -1,5 +1,5 @@
 const express = require('express');
-const { registerUser, sendCodeToEmail, verifyEmail, loginUser, getUserInfo, refreshToken, changePassword, logoutUser, deleteAccount, getFavourites, addToFavourite, removeFromFavourite, getBooks, addToBooks, removeFromBooks, editUser, getAllUploadedFiles, getSecretStorageKey, sendCodeToEmailSignPage, verifyEmailSignPage, changePasswordSignPage } = require('../Controllers/UserController.js');
+const { registerUser, sendCodeToEmail, verifyEmail, loginUser, getUserInfo, refreshToken, changePassword, logoutUser, deleteAccount, getFavourites, addToFavourite, removeFromFavourite, getBooks, addToBooks, removeFromBooks, editUser, getAllUploadedFiles, getSecretStorageKey, sendCodeToEmailSignPage, verifyEmailSignPage, changePasswordSignPage, verifyGuestBook, deleteGuestBook, getGuests } = require('../Controllers/UserController.js');
 const verifyJWT = require('../middleware/VerifyJWT.js');
 const verifyReCaptcha = require('../middleware/VerifyReCaptcha.js');
 const router = express.Router();
@@ -39,6 +39,13 @@ router.get("/books", verifyJWT, getBooks);
 router.put("/books/:propertyId", verifyJWT, addToBooks);
 
 router.delete("/books/:propertyId", verifyJWT, removeFromBooks);
+
+
+router.get('/guests', verifyJWT, getGuests);
+
+router.patch('/verify-guest', verifyJWT, verifyGuestBook);
+
+router.delete('/guest', verifyJWT, deleteGuestBook);
 
 
 router.patch("/edit", verifyJWT, editUser);

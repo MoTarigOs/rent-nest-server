@@ -11,6 +11,7 @@ const tooBusy = require('toobusy-js');
 const helmet = require('helmet');
 const buildLogger = require('./Logger/ProdLogger.js');
 const { getUnitCode } = require('./utils/logic.js');
+const PropertyModel = require('./Data/PropertyModel.js');
 const logger = buildLogger();
 
 connectDB();
@@ -37,7 +38,17 @@ app.use("/user", require("./Routers/UserRouter.js"));
 app.use("/property", require("./Routers/ProperityRouter.js"));
 app.use("/report", require("./Routers/ReportRouter.js"));
 app.use("/admin", require("./Routers/AdminRouter.js"));
-
+app.use("/test", async(req, res) => {
+    try {
+        const prop = await PropertyModel.updateOne({ _id: '6644d3b6a4d68e6b828cc40d' }, {
+           $unset: { guests: 1 } 
+        }, { new: true });
+        return res.status(200).json(prop);
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: err.message });
+    }
+});
 
 // Handle express errors
 app.use((err, req, res, next) => {

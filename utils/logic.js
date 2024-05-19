@@ -1,9 +1,8 @@
 const WL = require('../Data/WhiteList.js');
 const Property = require('../Data/PropertyModel.js');
+const User = require('../Data/UserModel.js');
 const crypto = require('crypto');
 require('dotenv').config();
-const path = require('path');
-const fsPromise = require('fs').promises;
 var nodemailer = require('nodemailer');
 const givenSet = "5LSQYvkBOwdjNEyleRIc1mW68rHP2MzVao37hfJKsngtDx4ZiGCpX9AqFuUbT";
 const givenSetOriginal = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789abcdefghijklmnopqrstuvwxyz";
@@ -912,36 +911,116 @@ const arrayLimitSchema = (val) => {
     return true;
 };
 
-const updatePropertyRating = async(propertyId, ratingsObj, addScore, isNew, pastRateObj, ownerId) => {
+const updatePropertyRating = async(propertyId, rateObj, type, newScore, oldScore, reviews, deletedWriterIds, ownerId) => {
+
+  if(type === 'add'){
+      
+      if(!rateObj || !newScore) return null;
+
+      let totalRating = rateObj?.val * rateObj.no;
+
+      totalRating += newScore;
+
+      const avgRate = totalRating / (rateObj.no + 1);
+
+      const newRatingsObj = { val: avgRate, no: rateObj.no + 1 };
+
+      try {
+
+          const newProp = await Property.findOneAndUpdate({ _id: propertyId }, { 
+            ratings: newRatingsObj
+          }, { new: true });
+
+          if(!newProp) return null;
+
+          await updateHostEvaluation(ownerId, type, newScore);
+
+          return newProp;
+
+      } catch (err) {
+          console.log(err);
+          return null;
+      }
+
+  }
+
+  if(type === 'update'){
+
+    if(!rateObj || !newScore || !oldScore) return null;
+
+    let totalRating = rateObj?.val * rateObj.no;
+
+    totalRating = totalRating - oldScore + newScore;
+
+    const avgRate = totalRating / rateObj.no;
+
+    const newRatingsObj = { val: avgRate, no: rateObj.no };
 
     try {
-        
-        const value = ratingsObj.val;
 
-        const numOfRates = ratingsObj.no;
+      const newProp = await Property.findOneAndUpdate({ _id: propertyId }, { 
+        ratings: newRatingsObj
+      }, { new: true });
 
-        if(typeof value !== 'number') return null;
+      console.log('newProp: ', newProp);
 
-        if(typeof numOfRates !== 'number') return null;
+      if(!newProp) return null;
 
-        const sumScore = isNew ? (value * numOfRates) : (value * numOfRates) - pastRateObj.user_rating;
-
-        const newValue = (sumScore + addScore) / (isNew ? numOfRates + 1 : numOfRates);
-
-        const newRatingsObj = { val: newValue > 5 ? 5 : newValue < 0 ? 0 : newValue, no: isNew ? (numOfRates + 1 < 0 ? 0 : numOfRates + 1) : (numOfRates < 0 ? 0 : numOfRates) };
-
-        const newProp = await Property.findOneAndUpdate({ _id: propertyId }, { 
-          ratings: newRatingsObj
-        }, { new: true });
-
-        await updateHostEvaluation(ownerId);
-
-        return newProp;
+      await updateHostEvaluation(ownerId, type, newScore, oldScore);
+  
+      return newProp;
 
     } catch (err) {
-        console.log(err);
-        return null;
+      console.log(err);
+      return null;
     }
+  }
+
+  if(type === 'remove'){
+
+    if(!rateObj) return null;
+
+    let deletedScore = 0;
+    let numOfDeletedReviews = 0;
+
+    console.log('reviews: ', reviews);
+    for (let i = 0; i < reviews.length; i++) {
+      const review = reviews[i];
+      if(deletedWriterIds.includes(review.writer_id?.toString())){
+        deletedScore += review.user_rating;
+        numOfDeletedReviews += 1;
+      }
+    }
+
+    console.log('deletedScore: ', deletedScore);
+
+    let totalRating = rateObj.val * rateObj.no;
+
+    totalRating -= deletedScore;
+
+    const avgRate = totalRating / (rateObj.no - numOfDeletedReviews);
+
+    const newRatingsObj = { val: avgRate, no: rateObj.no - numOfDeletedReviews };
+
+    console.log(newRatingsObj);
+
+    try {
+
+      const newProp = await Property.findOneAndUpdate({ _id: propertyId }, { 
+        ratings: { val: 0, no: 0 }
+      }, { new: true });
+
+      if(!newProp) return null;
+  
+      await updateHostEvaluation(ownerId, type, null, null, deletedScore, numOfDeletedReviews);
+  
+      return newProp;
+      
+    } catch (err) {
+      console.log(err);
+      return null;
+    }
+  }
 
 };
 
@@ -1016,20 +1095,166 @@ const getUnitCode = async() => {
   }
 };
 
-const updateHostEvaluation = async(id, isRemove) => {
-  try {
-    let updateObj = {};
-    if(isRemove){
-      updateObj = { reviews_num: { $inc: -1 } };
-    } else {
-      updateObj = { reviews_num: { $inc: 1 } };
+const updateHostEvaluation = async(id, type, newScore, oldScore, deletedScore, numOfDeletedReviews, reviews) => {
+
+  if(type === 'add'){
+    try {
+
+      const user = await User.findOne({ _id: id }).select('rating_score reviews_num');
+  
+      console.log('user: ', user);
+
+      if(!user) return;
+      
+      let totalRating = (user.rating_score || 0) * (user.reviews_num || 0);
+  
+      totalRating += newScore;
+  
+      const avg = totalRating / ((user.reviews_num || 0) + 1);
+  
+      let updateObj = {};
+
+      if(!avg || avg < 0 || avg > 5 || (user.reviews_num || 0) < 0){
+        updateObj = {
+          rating_score: 0, reviews_num: 0
+        }
+      } else {
+        updateObj = { 
+          rating_score: avg, reviews_num: (user.reviews_num || 0) + 1
+        };
+      };
+
+      console.log('updateHostObj: ', updateObj);
+  
+      await User.findOneAndUpdate({ _id: id }, updateObj);
+  
+      return;
+  
+    } catch (err) {
+      console.log(err);
+      return;
     }
-    const updated = await User.findOneAndUpdate({ _id: id }, updateObj);
-    return;
-  } catch (err) {
-    console.log(err);
-    return;
   }
+
+  if(type === 'update'){
+    try {
+
+      const user = await User.findOne({ _id: id }).select('rating_score reviews_num');
+  
+      console.log('user: ', user);
+      if(!user) return;
+      
+      let totalRating = (user.rating_score || 0) * (user.reviews_num || 0);
+  
+      totalRating = totalRating - oldScore + newScore;
+  
+      const avg = totalRating / user.reviews_num;
+  
+      let updateObj = {};
+
+      if(!avg || avg < 0 || avg > 5 || user.reviews_num < 0){
+        updateObj = {
+          rating_score: 0, reviews_num: 0
+        }
+      } else {
+        updateObj = { 
+          rating_score: avg
+        };
+      };
+  
+      await User.updateOne({ _id: id }, updateObj);
+  
+      return;
+  
+    } catch (err) {
+      console.log(err);
+      return;
+    }
+  }
+
+  if(type === 'remove'){
+    try {
+
+      const user = await User.findOne({ _id: id }).select('rating_score reviews_num');
+  
+      if(!user) return;
+
+      let totalRating = (user.rating_score || 0) * (user.reviews_num || 0);
+
+      if(totalRating <= 0) return;
+
+      totalRating -= deletedScore;
+  
+      const avg = totalRating / (user.reviews_num - numOfDeletedReviews);
+
+      let updateObj = {};
+
+      if(!avg || avg < 0 || avg > 5 || reviews_num < 0){
+        updateObj = {
+          rating_score: 0, reviews_num: 0
+        }
+      } else {
+        updateObj = { 
+          rating_score: avg, reviews_num: user.reviews_num - numOfDeletedReviews
+        };
+      };
+
+      await User.updateOne({ _id: id }, updateObj);
+  
+      return;
+  
+    } catch (err) {
+      console.log(err);
+      return;
+    }
+  }
+
+  if(type === 'remove all'){
+    try {
+
+      if(!reviews?.length > 0) return;
+
+      let deletedScoreAll = 0;
+
+      for (let i = 0; i < reviews.length; i++) {
+          const review = reviews[i];
+          deletedScoreAll += review.user_rating;
+      }
+
+      const user = await User.findOne({ _id: id }).select('rating_score reviews_num');
+  
+      if(!user) return;
+
+      let totalRating = (user.rating_score || 0) * (user.reviews_num || 0);
+
+      if(totalRating <= 0) return;
+
+      totalRating -= deletedScoreAll;
+  
+      const avg = totalRating / (user.reviews_num - reviews.length);
+
+      let updateObj = {};
+
+      if(avg < 0 || avg > 5 || reviews_num < 0){
+        updateObj = {
+          rating_score: 0, reviews_num: 0
+        }
+      } else {
+        updateObj = { 
+          rating_score: avg, reviews_num: user.reviews_num - reviews.length
+        };
+      };
+
+      await User.findOneAndUpdate({ _id: id }, updateObj);
+  
+      return;
+  
+    } catch (err) {
+      console.log(err);
+      return;
+    }
+  }
+
 };
 
 module.exports = {
@@ -1058,5 +1283,5 @@ module.exports = {
     isValidBookDateFormat,
     generateSecretKey,
     getUnitCode,
-    updatePropertyRatingRemovedReview
+    updateHostEvaluation
 };

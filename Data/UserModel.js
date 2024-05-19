@@ -1,5 +1,10 @@
 const mongoose = require('mongoose');
-const { arrayLimitSchema } = require('../utils/logic');
+
+const arrayLimitSchema = (val) => {
+    if(!val) return true;
+    if(val.length > 300) return false
+    return true;
+};
 
 const userSchema = mongoose.Schema({
     username: {
@@ -31,6 +36,10 @@ const userSchema = mongoose.Schema({
         type: String,
         maxLength: 500
     },
+    addressEN: {
+        type: String,
+        maxLength: 500
+    },
     phone: {
         type: String,
         maxLength: 50
@@ -47,15 +56,26 @@ const userSchema = mongoose.Schema({
         type: [{ 
             property_id: { type: mongoose.Types.ObjectId },
             date_of_book_start: { type: Number },
-            date_of_book_end: { type: Number }
+            date_of_book_end: { type: Number },
+            verified_book: { type: Boolean, default: false }
         }],
         validate: [arrayLimitSchema, 'array limit error']
     },
-    rating_score: {
-        type: Number, max: 5, min: 0, default: 0
+    book_guests: {
+        type: [{
+            guest_id: mongoose.Types.ObjectId,
+            guest_name: String,
+            booked_property_id: mongoose.Types.ObjectId,
+            booked_property_title: String,
+            booked_property_titleEN: String,
+            booked_property_unit: Number,
+            booked_property_image: String
+        }],
+        validate: [arrayLimitSchema, 'array limit error']
     },
-    reviews_num: Number,
-    num_of_units: Number,
+    rating_score: { type: Number, max: 5, min: 0, default: 0 }, 
+    reviews_num: { type: Number, default: 0, min: 0 },
+    num_of_units: { type: Number, default: 0, min: 0 },
     blocked: {
         date_of_block: {type: Number},
         block_duration: {type: Number},

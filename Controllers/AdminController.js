@@ -5,7 +5,7 @@ const ErrorModel = require('../Data/ErrorModel.js');
 const VerCode = require('../Data/VerificationCode.js');
 const WL = require('../Data/WhiteList.js');
 const mongoose = require('mongoose');
-const { isValidText, isValidEmail, isValidNumber, updatePropertyRatingRemovedReview } = require('../utils/logic.js');
+const { isValidText, isValidEmail, isValidNumber, updatePropertyRatingRemovedReview, updatePropertyRating, updateHostEvaluation } = require('../utils/logic.js');
 
 const getReports = async(req, res) => {
 
@@ -244,11 +244,13 @@ const deletePropertyAdmin = async(req, res) => {
 
         if(!mongoose.Types.ObjectId.isValid(propertyId)) return res.status(400).json({ message: 'request error' });
 
-        const property = await Property.findOne({ _id: propertyId, owner_id }).select('_id owner_id images videos');
+        const prop = await Property.findOneAndDelete({ _id: propertyId, owner_id }).select('reviews');
 
-        if(!property) return res.status(403).json({ message: 'access error' });
+        if(!prop) return res.status(403).json({ message: 'access error' });
 
-        await Property.deleteOne({ _id: propertyId, owner_id });
+        await updateHostEvaluation(owner_id, 'remove all', null, null, null, null, prop.reviews);
+
+        await User.updateOne({ _id: id }, { num_of_units: { $inc: -1 } });
 
         return res.status(201).json({ message: 'success' });
         
@@ -329,13 +331,13 @@ const deleteReviewsAdmin = async(req, res) => {
 
         const property = await Property.findOneAndUpdate({ _id: propertyId }, {
             $pull: { reviews: { writer_id: { $in: writerIds } } }
-        });
+        }).select('reviews ratings owner_id');
 
-        await updatePropertyRatingRemovedReview(property);
+        if(!property) return res.status(404).json({ message: 'not exist error' });
 
-        if(!property) return res.status(403).json({ message: 'access error' });
+        const updatedProp = await updatePropertyRating(propertyId, property.ratings, 'remove', null, null, property.reviews, writerIds, property.owner_id);
 
-        return res.status(201).json(property);
+        return res.status(201).json(updatedProp);
         
     } catch (err) {
         console.log(err);

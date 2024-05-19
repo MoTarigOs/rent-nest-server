@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Property = require('../Data/PropertyModel.js');
 const Report = require('../Data/ReportModel.js');
 const User = require('../Data/UserModel.js');
-const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts, isValidEnData, getUnitCode } = require('../utils/logic.js');
+const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts, isValidEnData, getUnitCode, updateHostEvaluation } = require('../utils/logic.js');
 const sortLatDistance = 0.1;
 const sortLongDistance = 0.3;
 
@@ -439,7 +439,16 @@ const getHostDetails = async(req, res) => {
 
         const host = await User.findOne({ _id: userId }).select('username usernameEN num_of_units rating_score reviews_num createdAt');
 
-        return res.status(200).json(host);
+        console.log(host);
+        
+        return res.status(200).json({
+            username: host.username,
+            usernameEN: host.usernameEN,
+            units: host.num_of_units,
+            rating: host.rating_score,
+            reviewsNum: host.reviews_num,
+            joinDate: host.createdAt
+        });
 
     } catch (err) {
         console.log(err);
@@ -455,14 +464,10 @@ const addReview = async(req, res) => {
         if(!req || !req.user || !req.body || !req.query) return res.status(400).json({ message: 'request error' });
 
         const { id, username } = req.user;
-
-        const user = await User.findOne({ _id: id, email_verified: true });
-
-        if(!user) return res.status(400).json({ message: 'User not exist' });
+        
+        const { propertyId } = req.query;
 
         const { text, user_rating } = req.body;
-
-        const { propertyId } = req.query;
 
         if(!mongoose.Types.ObjectId.isValid(id) 
             || !mongoose.Types.ObjectId.isValid(propertyId) 
@@ -472,13 +477,18 @@ const addReview = async(req, res) => {
             return res.status(400).json({ message: 'input error' });
         }
 
+        const user = await User.findOne({ _id: id, email_verified: true, books: { $elemMatch: { property_id: propertyId, verified_book: true } } });
+
+        if(!user) return res.status(400).json({ message: 'User not exist' });
+
         const property = await Property.findOneAndUpdate({ _id: propertyId, owner_id: { $ne: id }, reviews: { $elemMatch: { writer_id: id } } }, {
             $set: { "reviews.$" : { 
                 writer_id: id, 
                 username: username,
-                text, user_rating: Number(user_rating).toFixed(2)
+                text, user_rating: Number(user_rating).toFixed(2),
+                updatedAt: Date.now()
             }}
-        }).select('_id reviews ratings owner_id');
+        }).select('_id ratings reviews owner_id');
 
         if(!property){
 
@@ -486,24 +496,19 @@ const addReview = async(req, res) => {
                 $push: { reviews: { 
                     writer_id: id, 
                     username: username,
-                    text, user_rating: Number(user_rating).toFixed(2)
+                    text, user_rating: Number(user_rating).toFixed(2),
+                    updatedAt: Date.now()
                 }}
-            }).select('_id reviews ratings owner_id');
+            }).select('_id ratings owner_id');
 
             if(!inserted) return res.status(403).json({ message: 'access error' });
 
-            const updatedInsertedProp = await updatePropertyRating(propertyId, inserted.ratings, user_rating, true, null, inserted.owner_id);    
+            const updatedInsertedProp = await updatePropertyRating(propertyId, inserted.ratings, 'add', Number(user_rating), null, null, null, inserted.owner_id);    
         
             return res.status(201).json(updatedInsertedProp);
 
         } else {
-            const updatedProp = await updatePropertyRating(
-                propertyId, 
-                property.ratings, 
-                user_rating, false, 
-                property.reviews.find(i => i?.writer_id?.toString() === id), 
-                property.owner_id
-            );
+            const updatedProp = await updatePropertyRating(propertyId, property.ratings, 'update', Number(user_rating), property.reviews?.find(i => i.writer_id?.toString() === id)?.user_rating, null, null, property.owner_id);
             return res.status(201).json(updatedProp);
         }         
         
@@ -725,11 +730,15 @@ const deleteProperty = async(req, res) => {
         if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
             return res.status(400).json({ message: 'request error' });
 
-        const prop = await Property.deleteOne({ _id: propertyId, owner_id: id });
+        const prop = await Property.findOneAndDelete({ _id: propertyId, owner_id: id }).select('ratings reviews owner_id');
+
+        if(!prop) return res.status(403).json({ message: 'access error' });
+
+        await updateHostEvaluation(id, 'remove all', null, null, null, null, prop.reviews);
 
         await Report.deleteOne({ reported_id: propertyId });
 
-        if(!prop) return res.status(403).json({ message: 'access error' });
+        await User.updateOne({ _id: id }, { num_of_units: { $inc: -1 } });
 
         return res.status(201).json({ message: 'success' });
         

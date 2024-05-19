@@ -203,7 +203,7 @@ const changePasswordSignPage = asyncHandler( async(req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     const user = await User.updateOne({ email: email }, { 
-        password: hashedPassword, attempts: 0
+        password: hashedPassword, attempts: 0, email_verified: true
     });
 
     if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
@@ -347,13 +347,15 @@ const getUserInfo = asyncHandler(async(req, res) => {
     };
 
     const user = await User.findOne({ _id: id })
-        .select('_id email_verified username email role address phone favourites books');
+        .select('_id email_verified username usernameEN email role address addressEN phone favourites books');
 
     res.status(200).json({
         user_id: user._id, 
         user_username: user.username, 
+        user_usernameEN: user.usernameEN, 
         user_email: user.email,
         address: user.address,
+        addressEN: user.addressEN,
         phone: user.phone,
         is_verified: user.email_verified,
         tokenExp: req.token_exp,
@@ -680,7 +682,7 @@ const addToBooks = async(req, res) => {
 
         if(!req || !req.user || !req.params || !req.body) return res.status(400).json({ message: 'request error' });
 
-        const { id } = req.user;
+        const { id, username } = req.user;
         const { propertyId } = req.params;
         const { startDate, endDate } = req.body;
 
@@ -690,6 +692,10 @@ const addToBooks = async(req, res) => {
         if(startDate && typeof startDate !== 'number') return res.status(400).json({ message: 'date error' });
 
         if(endDate && typeof endDate !== 'number') return res.status(400).json({ message: 'date error' });    
+        
+        const property = await Property.findOne({ _id: propertyId }).select('owner_id title images unit_code en_data.titleEN');
+
+        if(!property) return res.status(404).json({ message: 'not exist error' });
 
         const user = await User.findOneAndUpdate({ 
             _id: id, email_verified: true, books: { $elemMatch: { property_id: propertyId } }
@@ -709,13 +715,39 @@ const addToBooks = async(req, res) => {
                 $push: { books: { property_id: propertyId, date_of_book_start: startDate, date_of_book_end: endDate } }
             }, { new: true }).select('_id books');
 
-            if(!pushToUser || pushToUser.modifiedCount < 1 || pushToUser.acknowledged === false)
+            if(!pushToUser)
                 return res.status(403).json({ message: 'access error' });
 
             returnBooks = pushToUser.books;
 
+            await User.updateOne({ _id: property.owner_id }, {
+                $push: { book_guests : { 
+                    guest_id: id,
+                    booked_property_id: propertyId,
+                    booked_property_title: property.title,
+                    booked_property_titleEN: property.en_data.titleEN,
+                    booked_property_unit: property.unit_code,
+                    booked_property_image: property.images?.at(0),
+                    guest_name: username
+                }}
+            });
+
         } else {
+
             returnBooks = user.books;
+
+            await User.updateOne({ _id: property.owner_id }, {
+                $push: { book_guests : { 
+                    guest_id: id,
+                    booked_property_id: propertyId,
+                    booked_property_title: property.title,
+                    booked_property_titleEN: property.en_data.titleEN,
+                    booked_property_unit: property.unit_code,
+                    booked_property_image: property.images?.at(0),
+                    guest_name: username
+                }}
+            });
+
         }
 
         return res.status(201).json(returnBooks);
@@ -745,11 +777,100 @@ const removeFromBooks = async(req, res) => {
 
         if(!user) return res.status(403).json({ message: 'access error' });
 
+        const property = await Property.findOne({ _id: propertyId }).select('owner_id');
+
+        if(property){
+            await User.findOneAndUpdate({ _id: property.owner_id }, {
+                $pull: { book_guests: { guest_id: id, booked_property_id: propertyId } }
+            });
+        }
+
         return res.status(201).json(user.books);
         
     } catch (err) {
         console.log(err);
         return res.status(500).json({ message: err.message });
+    }
+
+};
+
+const getGuests = async(req, res) => {
+
+    try {
+
+        const id = req?.user?.id;
+
+        if(!id || !mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'request error' });
+        
+        const user = await User.findOne({ _id: id }).select('book_guests');
+
+        if(!user) return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(200).json(user.book_guests);
+
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+};
+
+const verifyGuestBook = async(req, res) => {
+
+    try {
+
+        if(!req || !req.query) return res.status(400).json({ message: 'request error' });
+
+        const { id } = req.user;
+
+        const { guestId, propertyId } = req.query;
+
+        if(!mongoose.Types.ObjectId.isValid(guestId) || !mongoose.Types.ObjectId.isValid(propertyId))
+            return res.status(400).json({ message: 'request error' });
+            
+        const user = await User.updateOne({ 
+            _id: guestId, books: { $elemMatch: { property_id: propertyId } }
+        }, {
+            $set: { "books.$.verified_book" : true }
+        });
+
+        console.log('user updateOne: ', user);
+
+        if(!user?.acknowledged) return res.status(404).json({ message: 'request error' });
+
+        const updatedUserGuestArray = await User.findOneAndUpdate({ _id: id }, {
+            $pull: { book_guests: { guest_id: guestId, booked_property_id: propertyId } }
+        }, { new: true }).select('book_guests');
+
+        res.status(201).json(updatedUserGuestArray?.book_guests);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+};
+
+const deleteGuestBook = async(req, res) => {
+
+    try {
+
+        if(!req || !req.query) return res.status(400).json({ message: 'request error' });
+
+        const { id } = req.user;
+
+        const { guestId, propertyId } = req.query;
+
+        if(!mongoose.Types.ObjectId.isValid(guestId) || !mongoose.Types.ObjectId.isValid(propertyId))
+            return res.status(400).json({ message: 'request error' });
+
+        const updatedUserGuestArray = await User.findOneAndUpdate({ _id: id }, {
+            $pull: { book_guests: { guest_id: guestId, booked_property_id: propertyId } }
+        }, { new: true }).select('book_guests');
+
+        return res.status(201).json(updatedUserGuestArray?.book_guests);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
     }
 
 };
@@ -762,13 +883,17 @@ const editUser = async(req, res) => {
 
         const { id } = req.user;
 
-        const { updateUsername, updateAddress, updatePhone, updateUsernameEN } = req.body;
+        const { updateUsername, updateAddress, updatePhone, updateUsernameEN, updateAddressEN } = req.body;
+
+        console.log(req.body);
 
         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'request error' });
         
         if(updateUsername && !isValidText(updateUsername)) return res.status(400).json({ message: 'username error' });
 
         if(updateAddress && !isValidText(updateAddress)) return res.status(400).json({ message: 'address error' });
+        
+        if(updateAddressEN && !isValidText(updateAddress)) return res.status(400).json({ message: 'address error' });
 
         if(updatePhone && !isValidText(updatePhone)) return res.status(400).json({ message: 'phone error' });
         
@@ -777,15 +902,16 @@ const editUser = async(req, res) => {
         let updateObj = {};
 
         if(updateAddress) updateObj.address = updateAddress;
-        if(updatePhone) updateObj.address = updatePhone;
-        if(updateUsername) updateObj.address = updateUsername;
-        if(updateUsernameEN) updateObj.address = updateUsernameEN;
+        if(updateAddressEN) updateObj.addressEN = updateAddressEN;
+        if(updatePhone) updateObj.phone = updatePhone;
+        if(updateUsername) updateObj.username = updateUsername;
+        if(updateUsernameEN) updateObj.usernameEN = updateUsernameEN;
 
-        const user = await User.findOneAndUpdate({ _id: id, email_verified: true }, updateObj);
+        const user = await User.findOneAndUpdate({ _id: id, email_verified: true }, updateObj, { new: true }).select('username usernameEN address addressEN phone');
 
         if(!user) return res.status(400).json({ message: 'access error' });
         
-        return res.status(201).json({ message: 'success' });
+        return res.status(201).json(user);
     
     } catch (err) {
         console.log(err.message);
@@ -800,5 +926,6 @@ module.exports = {
     getUserInfo, refreshToken, changePassword,
     logoutUser, deleteAccount, getFavourites,
     addToFavourite, removeFromFavourite,
-    getBooks, addToBooks, removeFromBooks, editUser
+    getBooks, addToBooks, removeFromBooks, 
+    getGuests, verifyGuestBook, deleteGuestBook, editUser
 };
