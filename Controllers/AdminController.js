@@ -250,7 +250,7 @@ const deletePropertyAdmin = async(req, res) => {
 
         await updateHostEvaluation(owner_id, 'remove all', null, null, null, null, prop.reviews);
 
-        await User.updateOne({ _id: id }, { num_of_units: { $inc: -1 } });
+        await User.updateOne({ _id: id }, { $inc: { num_of_units: -1 } });
 
         return res.status(201).json({ message: 'success' });
         

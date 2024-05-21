@@ -15,7 +15,7 @@ const getProperties = async(req, res) => {
         const { 
             city, type_is_vehicle, specific, price_range, 
             min_rate, text, sort, long, lat, skip, categories,
-            quickFilter, isEnglish,
+            quickFilter, isEnglish, isCount, cardsPerPage,
             unitCode,
             bedroomFilter,
             capacityFilter,
@@ -25,7 +25,7 @@ const getProperties = async(req, res) => {
             bathroomsNum,
             companiansFilter,
             kitchenFilter,
-            vehicleType
+            vehicleType,
         } = req.query;
 
         // console.log('min_rate: ', min_rate);
@@ -68,7 +68,9 @@ const getProperties = async(req, res) => {
 
         if(text && !isValidText(text)) return res.status(400).json({ message: 'text error' });
 
-        const filterObj = () => {
+        if(cardsPerPage && !isValidNumber(Number(cardsPerPage))) return res.status(400).json({ message: 'cards per page error' });
+
+        const filterObj = (isCount) => {
 
             if(unitCode && isValidNumber(Number(unitCode), null, null, 'start-zero')) return { unit_code: Number(unitCode) };
 
@@ -215,7 +217,7 @@ const getProperties = async(req, res) => {
                 case 'low-price':
                     return { price: 1, 'ratings.val': -1, createdAt: -1 }
                 default:
-                    return { createdAt: -1 };
+                    return { 'ratings.val': -1, createdAt: -1 };
             }
         };
         
@@ -223,23 +225,33 @@ const getProperties = async(req, res) => {
 
             if(!skip || typeof Number(skip) !== 'number') return 0;
 
-            if(Math.round(Number(skip)) <= 0 || Math.round(Number(skip)) > 100) return 0;
+            if(Math.round(Number(skip)) <= 0 || Math.round(Number(skip)) > 1000) return 0;
 
             return Math.round(Number(skip));
 
         };
 
         console.log(filterObj());
+
+        if(isCount?.length > 0) {
+            const count = await Property.find(filterObj()).count();
+            console.log('only count: ', count);
+            return res.status(200).json({ count });
+        }
             
         const properties = await Property.find(filterObj())
-            .limit(300).sort(sortObj()).skip(skipObj() * 300)
+            .limit(Number(cardsPerPage) > 36 ? 36 : Number(cardsPerPage)).sort(sortObj()).skip(skipObj())
             .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN price discount specific_catagory'); 
 
         if(!properties || properties.length <= 0) return res.status(404).json({ message: 'not exist error' });
         
-        console.log(properties.length);
+        console.log('props length: ', properties.length);
 
-        return res.status(200).json(properties);
+        const count = await Property.find(filterObj()).countDocuments();
+
+        console.log('count: ', count);
+
+        return res.status(200).json({ properties, count });
 
     } catch (err) {
         console.log(err);
@@ -342,7 +354,7 @@ const createProperty = async(req, res) => {
         console.log('property id: ', property._id);
 
         await User.updateOne({ _id: id }, {
-            num_of_units: { $inc: 1 }
+            $inc: { num_of_units: 1 }
         });
 
         return res.status(201).json({
@@ -738,7 +750,7 @@ const deleteProperty = async(req, res) => {
 
         await Report.deleteOne({ reported_id: propertyId });
 
-        await User.updateOne({ _id: id }, { num_of_units: { $inc: -1 } });
+        await User.updateOne({ _id: id }, { $inc: { num_of_units: -1 } });
 
         return res.status(201).json({ message: 'success' });
         
