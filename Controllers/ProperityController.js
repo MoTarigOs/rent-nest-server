@@ -308,9 +308,6 @@ const createProperty = async(req, res) => {
         if(capacity && !isValidNumber(capacity, null, 0)) return res.status(400).json({ message: 'capacity error' });
 
         if(customer_type && !isValidText(customer_type)) return res.status(400).json({ message: 'capacity error' });
-        
-        if(cancellation && !isValidNumber(Number(cancellation), 10, 0, 'start-zero')) 
-            return res.status(400).json({ message: 'cancaellation error' });
 
         if(en_data && !isValidEnData(en_data)) return res.status(400).json({ message: 'enDetails error' });
 
@@ -340,9 +337,9 @@ const createProperty = async(req, res) => {
                 contacts,
                 capacity,
                 customer_type,
-                en_data,
-                cancellation: cancellation
+                en_data
             };
+            if(isValidNumber(Number(cancellation), 10, 0, 'start-zero')) obj.cancellation = cancellation;
             if(unitCode) obj.unit_code = unitCode;
             if(map_coordinates[0] && map_coordinates[1] && isValidPoint(map_coordinates[0], map_coordinates[1])) obj.map_coordinates = map_coordinates;
             if(type_is_vehicle) obj.vehicle_type = vehicleType;
@@ -575,27 +572,28 @@ const editProperty = async(req, res) => {
 
         if(customerType && !isValidText(customerType)) return res.status(400).json({ message: 'customer type error' });
         
-        if(cancellation && !isValidNumber(Number(cancellation), 10, null, 'start-zero')) 
-            return res.status(400).json({ message: 'cancellation error' });
-
         if(enObj && !isValidEnData(enObj)) return res.status(400).json({ message: 'enDetails error' });
 
-        const property = await Property.findOneAndUpdate({ _id: propertyId, owner_id: id }, {
-            title,
-            description,
-            price,
-            details,
-            terms_and_conditions,
-            checked: false,
-            isRejected: false,
-            reject_reasons: [],
-            contacts,
-            discount,
-            capacity,
-            customer_type: customerType,
-            en_data: enObj,
-            cancellation
-        }, { new: true });
+        const getUpdateObj = () => {
+            let obj = {
+                title,
+                description,
+                price,
+                details,
+                terms_and_conditions,
+                checked: false,
+                isRejected: false,
+                reject_reasons: [],
+                contacts,
+                discount,
+                capacity,
+                customer_type: customerType,
+                en_data: enObj,
+            }
+            if(isValidNumber(Number(cancellation), 10, null, 'start-zero')) obj.cancellation = cancellation;
+        };
+
+        const property = await Property.findOneAndUpdate({ _id: propertyId, owner_id: id }, getUpdateObj(), { new: true });
 
         if(!property) return res.status(403).json({ message: 'access error' });
 

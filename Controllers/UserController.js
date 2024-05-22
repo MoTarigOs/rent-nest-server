@@ -1,5 +1,5 @@
 const asyncHandler = require('express-async-handler');
-const { isValidPassword, isValidUsername, isValidEmail, generateRandomCode, sendToEmail, isValidText, updateWhiteListAccessToken, deleteTokens, generateSecretKey } = require('../utils/logic.js');
+const { isValidPassword, isValidUsername, isValidEmail, generateRandomCode, sendToEmail, isValidText, updateWhiteListAccessToken, deleteTokens, generateSecretKey, isValidNumber } = require('../utils/logic.js');
 const User = require('../Data/UserModel.js');
 const VerCode = require('../Data/VerificationCode.js');
 const bcrypt = require('bcrypt');
@@ -551,6 +551,8 @@ const getFavourites = async(req, res) => {
 
         const { id, email } = req.user;
 
+        const { skip, cardsPerPage } = req.query;
+
         if(!isValidEmail(email) || !mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'request error' });
 
         const user = await User.findOne({ _id: id, email }).select('_id favourites');
@@ -558,14 +560,19 @@ const getFavourites = async(req, res) => {
         if(!user || !user.favourites || user.favourites.length <= 0) 
             return res.status(404).json({ message: 'not found error' });
 
-        const properties = await Property.find({ _id: user.favourites })
-            .limit(300).sort({ createdAt: -1 })
-            .select('_id images title description ratings city neighbourhood price discount specific_catagory');    
+            console.log(user.favourites);
 
-        if(!properties) 
-            return res.status(404).json({ message: 'not found error' });
+        const properties = await Property.find({ _id: user.favourites }).limit(Number(cardsPerPage) > 36 ? 36 : Number(cardsPerPage))
+            .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN price discount specific_catagory')
+            .sort({ createdAt: -1 }).skip(isValidNumber(Number(skip), 36) ? Number(skip) : 0);
 
-        return res.status(200).json(properties);    
+            console.log(properties);
+            
+        if(!properties || properties.length <= 0) return res.status(400).json({ message: 'not exist error' });
+
+        const count = await Property.find({ _id: user.favourites }).countDocuments();
+
+        return res.status(200).json({ properties, count });
         
     } catch (err) {
         console.log(err);
@@ -636,6 +643,10 @@ const getBooks = async(req, res) => {
 
         const { id, email } = req.user;
 
+        const { skip, cardsPerPage } = req.query;
+
+        console.log('books');
+
         if(!isValidEmail(email) || !mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'request error' });
 
         const user = await User.findOne({ _id: id, email }).select('_id books');
@@ -648,26 +659,19 @@ const getBooks = async(req, res) => {
             idsArr.push(user.books[i].property_id);
         };
 
-        const properties = await Property.find({ _id: idsArr })
-            .limit(300).sort({ createdAt: -1 })
-            .select('_id images title description ratings city neighbourhood price discount specific_catagory');    
+        console.log(idsArr);
 
-        if(!properties) return res.status(404).json({ message: 'not found error' });
+        const properties = await Property.find({ _id: idsArr }).limit(Number(cardsPerPage) > 36 ? 36 : Number(cardsPerPage))
+        .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN price discount specific_catagory')
+        .sort({ createdAt: -1 }).skip(isValidNumber(Number(skip), 36) ? Number(skip) : 0);
 
-        let idsToPull = [];    
-        for (let i = 0; i < properties.length; i++) {
-            if(properties[i].owner_id === id){
-                idsToPull.push(properties[i]._id);
-            }
-        };
+        console.log(properties);
 
-        if(idsToPull.length > 0){
-            await User.updateOne({ _id: id }, {
-                $pull: { books: { property_id: idsToPull } }
-            });
-        };
+        if(!properties || properties.length <= 0) return res.status(400).json({ message: 'not exist error' });
 
-        return res.status(200).json(properties);    
+        const count = await Property.find({ _id: idsArr }).countDocuments();
+
+        return res.status(200).json({ properties, count });
         
     } catch (err) {
         console.log(err);
