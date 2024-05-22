@@ -4,6 +4,8 @@ const { default: mongoose } = require("mongoose");
 
 const verifyAdmin = asyncHandler( async(req, res, next) => {
 
+    console.log('varifing admin');
+
     if(!req?.user) return res.status(400).json({ message: 'request error' });
 
     const { id } = req.user;

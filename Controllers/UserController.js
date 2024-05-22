@@ -347,7 +347,9 @@ const getUserInfo = asyncHandler(async(req, res) => {
     };
 
     const user = await User.findOne({ _id: id })
-        .select('_id email_verified username usernameEN email role address addressEN phone favourites books');
+        .select('_id email_verified username usernameEN email role address addressEN phone favourites books notif');
+
+    if(!user) return res.status(404).json({ message: 'not exist error' });
 
     res.status(200).json({
         user_id: user._id, 
@@ -362,7 +364,8 @@ const getUserInfo = asyncHandler(async(req, res) => {
         role: user.role,
         my_books: user.books,
         my_fav: user.favourites,
-        storage_key: secretKey
+        storage_key: secretKey,
+        notifications: user.notif
     });
 
 });

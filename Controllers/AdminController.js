@@ -190,6 +190,10 @@ const passProperty = async(req, res) => {
 
         if(!property) return res.status(403).json({ message: 'access error' });
 
+        await User.findOneAndUpdate({ _id: property.owner_id }, {
+            $push: { notif: { typeOfNotif: 'accept-prop', targettedId: propertyId } }
+        });
+
         return res.status(201).json(property);
         
     } catch (err) {
@@ -202,6 +206,8 @@ const passProperty = async(req, res) => {
 const rejectProperty = async(req, res) => {
 
     try {
+
+        console.log('rejecting');
 
         if(!req || !req.params) return res.status(400).json({ message: 'request error' });
 
@@ -222,6 +228,10 @@ const rejectProperty = async(req, res) => {
         }, { new: true });
 
         if(!property) return res.status(403).json({ message: 'access error' });
+
+        await User.findOneAndUpdate({ _id: property.owner_id }, {
+            $push: { notif: { typeOfNotif: 'reject-prop', targettedId: propertyId } }
+        });
 
         return res.status(201).json(property);
         
@@ -250,7 +260,10 @@ const deletePropertyAdmin = async(req, res) => {
 
         await updateHostEvaluation(owner_id, 'remove all', null, null, null, null, prop.reviews);
 
-        await User.updateOne({ _id: id }, { $inc: { num_of_units: -1 } });
+        await User.updateOne({ _id: owner_id }, { 
+            $inc: { num_of_units: -1 },
+            $push: { notif: { typeOfNotif: 'delete-prop', targettedId: propertyId } }
+        });
 
         return res.status(201).json({ message: 'success' });
         
@@ -647,17 +660,6 @@ const demoteFromAdmin = async(req, res) => {
     }
 
 };
-
-// const toOwner = async(req, res) => {
-//     try {
-//         const user = await User.findOneAndUpdate({ email: process.env.MAKE_THIS_EMAIL_TO_OWNER }, {
-//             role: 'owner'
-//         }, { new: true });
-//         res.status(200).json(user);
-//     } catch (err) {
-//         res.status(500).json(err.message);
-//     }
-// };
 
 module.exports = {
     getReports,

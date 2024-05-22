@@ -209,15 +209,15 @@ const getProperties = async(req, res) => {
         const sortObj = () => {
             switch(sort){
                 case 'default':
-                    return { 'ratings.val': -1, createdAt: -1 };
+                    return { 'ratings.val': -1, 'ratings.no': -1, updatedAt: -1, createdAt: -1 };
                 case 'ratings':
-                    return { 'ratings.val': -1, createdAt: -1 }
+                    return { 'ratings.val': -1, 'ratings.no': -1, createdAt: -1 }
                 case 'high-price':
-                    return { price: -1, 'ratings.val': -1, createdAt: -1 }
+                    return { price: -1, 'ratings.val': -1, 'ratings.no': -1, createdAt: -1 }
                 case 'low-price':
-                    return { price: 1, 'ratings.val': -1, createdAt: -1 }
+                    return { price: 1, 'ratings.val': -1, 'ratings.no': -1, createdAt: -1 }
                 default:
-                    return { 'ratings.val': -1, createdAt: -1 };
+                    return { 'ratings.val': -1, 'ratings.no': -1, updatedAt: -1, createdAt: -1 };
             }
         };
         

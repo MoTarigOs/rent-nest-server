@@ -73,6 +73,10 @@ const userSchema = mongoose.Schema({
         }],
         validate: [arrayLimitSchema, 'array limit error']
     },
+    notif: {
+        type: [{ typeOfNotif: String, targettedId: mongoose.Types.ObjectId }],
+        validate: [arrayLimitSchema, 'array limit error']
+    },
     rating_score: { type: Number, max: 5, min: 0, default: 0 }, 
     reviews_num: { type: Number, default: 0, min: 0 },
     num_of_units: { type: Number, default: 0, min: 0 },
