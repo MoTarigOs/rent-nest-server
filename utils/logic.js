@@ -736,7 +736,7 @@ const isValidNumber = (num, maxLength, minLength, type) => {
 
     if(isNaN(Number(num))) return false;
 
-    if(Boolean(maxLength) && (typeof num !== "number" || num > maxLength)) {
+    if(Boolean(maxLength) && (typeof num !== "number" || num > maxLength || (type == 'start-zero' ? num < 0 : num < minLength))) {
       return false;
     }
 

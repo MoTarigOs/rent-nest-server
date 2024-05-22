@@ -272,6 +272,8 @@ const createProperty = async(req, res) => {
 
         if(!user) return res.status(400).json({ message: 'User not exist' });
 
+        console.log(req.body);
+
         const { 
             type_is_vehicle, specific_catagory, title, description, city, 
             neighbourhood, map_coordinates, price, details, 
@@ -307,7 +309,7 @@ const createProperty = async(req, res) => {
 
         if(customer_type && !isValidText(customer_type)) return res.status(400).json({ message: 'capacity error' });
         
-        if(cancellation && !isValidNumber(Number(cancellation), null, null, 'start-zero') && cancellation >= 0 && cancellation <= 10) 
+        if(cancellation && !isValidNumber(Number(cancellation), 10, 0, 'start-zero')) 
             return res.status(400).json({ message: 'cancaellation error' });
 
         if(en_data && !isValidEnData(en_data)) return res.status(400).json({ message: 'enDetails error' });
@@ -422,15 +424,19 @@ const getOwnerProperty = async(req, res) => {
 
         const { userId } = req.params;
 
+        const { skip, cardsPerPage } = req.query;
+
         if(!mongoose.Types.ObjectId.isValid(userId)) return res.status(400).json({ message: 'request error' });
 
-        const properties = await Property.find({ owner_id: userId }).limit(300)
+        const properties = await Property.find({ owner_id: userId }).limit(Number(cardsPerPage))
             .select('_id images title checked visible isRejected description reviews ratings city neighbourhood price discount')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 }).skip(isValidNumber(Number(skip), 36) ? Number(skip) : 0);
 
         if(!properties || properties.length <= 0) return res.status(400).json({ message: 'not exist error' });
 
-        return res.status(200).json(properties);
+        const count = await Property.find({ owner_id: userId }).countDocuments();
+
+        return res.status(200).json({ properties, count });
 
     } catch (err) {
         console.log(err);
@@ -540,15 +546,19 @@ const editProperty = async(req, res) => {
         const { propertyId } = req.params;
         const { 
             title, description, price, details, 
-            terms_and_conditions, contacts, discount
+            terms_and_conditions, contacts, discount,
+            enObj, cancellation, capacity, customerType
         } = req.body;
+
+        console.log(enObj.english_details);
+        //return res.status(400).json({ message: 'stop' });
 
         if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
             return res.status(400).json({ message: 'request error' });
 
-        if(title && !isValidText(title, 5)) return res.status(400).json({ message: 'title error' });
+        if(title && !isValidText(title)) return res.status(400).json({ message: 'title error' });
         
-        if(description && !isValidText(description, 25)) return res.status(400).json({ message: 'desc error' });
+        if(description && !isValidText(description)) return res.status(400).json({ message: 'desc error' });
 
         if(price && !isValidNumber(price)) return res.status(400).json({ message: 'price error' });
        
@@ -556,12 +566,19 @@ const editProperty = async(req, res) => {
         
         if(terms_and_conditions && !isValidTerms(terms_and_conditions)) return res.status(400).json({ message: 'details error' });
 
-        console.log('jophnyyy: ', contacts, isValidContacts(contacts));
-
         if(contacts && !isValidContacts(contacts)) return res.status(400).json({ message: 'contacts error' });
 
         if(discount?.percentage && (!isValidNumber(discount.percentage, 100, 0) || !isValidNumber(discount.num_of_days_for_discount, 2000, 0)))
             return res.status(400).json({ message: 'discount error' });
+
+        if(capacity && !isValidNumber(capacity, null, 0)) return res.status(400).json({ message: 'capacity error' });
+
+        if(customerType && !isValidText(customerType)) return res.status(400).json({ message: 'customer type error' });
+        
+        if(cancellation && !isValidNumber(Number(cancellation), 10, null, 'start-zero')) 
+            return res.status(400).json({ message: 'cancellation error' });
+
+        if(enObj && !isValidEnData(enObj)) return res.status(400).json({ message: 'enDetails error' });
 
         const property = await Property.findOneAndUpdate({ _id: propertyId, owner_id: id }, {
             title,
@@ -573,7 +590,11 @@ const editProperty = async(req, res) => {
             isRejected: false,
             reject_reasons: [],
             contacts,
-            discount
+            discount,
+            capacity,
+            customer_type: customerType,
+            en_data: enObj,
+            cancellation
         }, { new: true });
 
         if(!property) return res.status(403).json({ message: 'access error' });
