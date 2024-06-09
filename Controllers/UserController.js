@@ -17,37 +17,89 @@ const registerUser = async(req, res) => {
         if(!req?.body)
             return res.status(400).json({message: "request error"});
 
-        const { username, email, password } = req.body;
+        const { 
+            username, email, password, 
+            firstName, lastName, accountType, 
+            phone, address 
+        } = req.body;
+
+        // console.log(req.body);
 
         if(!isValidPassword(password))
             return res.status(400).json({message: "pass error"});
 
-        if(!isValidText(username))
+        if(!isValidUsername(username))
             return res.status(400).json({message: "name error"});
 
         if(!isValidEmail(email))
             return res.status(400).json({message: "email error"});
 
+        if(!isValidText(firstName) || firstName?.length > 20) 
+            return res.status(400).json({message: "first name error"});
+
+        if(!isValidText(lastName) || lastName?.length > 20) 
+            return res.status(400).json({message: "last name error"});
+
+        if(accountType?.length > 0 && accountType !== 'guest' && accountType !== 'host') 
+            return res.status(400).json({message: "account type error"});
+
+        if(phone?.length > 0 && (!isValidText(phone) || phone?.length > 20)) 
+            return res.status(400).json({message: "phone error"});
+
+        if(address?.length > 0 && (!isValidText(address) || address?.length > 20)) 
+            return res.status(400).json({message: "address error"});
+
         /* check email availability */
-        const emailAvailable = await User.findOne({email: email});
+        const emailAvailable = await User.findOne({ email: email }).select('email username');
         if(emailAvailable)
-            return res.status(403).send("email error 2"); 
+            return res.status(403).json({ message: "email error 2" }); 
+        if(emailAvailable?.username === username)
+            return res.status(403).json({ message: "username error" }); 
 
         /* hash the password */
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await User.create({
             username,
             email,
-            password: hashedPassword
+            password: hashedPassword,
+            first_name: firstName,
+            last_name: lastName,
+            account_type: accountType || 'guest',
+            phone,
+            address
         });
 
         if(!user) return res.status(400).json({ message: "input error" });
 
-        res.status(201).send("Account Successfully created");
+        res.status(201).json({ message: "Account Successfully created" });
 
     } catch (err) {
         console.log(err);
         return res.status(500).json({ message: 'unknown error' });
+    }
+
+};
+
+const checkUsername = async(req, res) => {
+
+    try {
+
+        const { username } = req.params;
+
+        console.log('checking username: ', username);
+
+        if(!isValidUsername(username)) 
+            return res.status(400).json({ message: 'username error' });
+
+        const exist = await User.findOne({ username }).select('_id username');
+        
+        if(exist) return res.status(404).json({ message: 'username error' });
+        
+        return res.status(200).json({ message: 'success' });
+
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
     }
 
 };
@@ -114,7 +166,8 @@ const sendCodeToEmailSignPage = asyncHandler(async(req, res) => {
     const verCodeRes = await VerCode.findOneAndUpdate({ email: email }, { 
         code: code, 
         date: Date.now(),
-        attempts: 0
+        attempts: 0,
+        // $inc: { total_codes_sent: 1 }
     });
 
     if(!verCodeRes) {
@@ -125,9 +178,11 @@ const sendCodeToEmailSignPage = asyncHandler(async(req, res) => {
             attempts: 0
         });
 
-        if(!verCodeCreate) return res.status(500).send("Eserver error");
-    };
-
+        if(!verCodeCreate) return res.status(500).send("server error");
+    } else {
+        if(verCodeRes.total_codes_sent > 500) return res.status(403).send('send code limit exceeded');
+    }
+    
     res.status(201).send("Code sent Successfully");
 
 });
@@ -161,7 +216,12 @@ const verifyEmail = asyncHandler( async(req, res) => {
         code: null, date: null, attempts: 0
     });
 
-    const updateUser = await User.findOneAndUpdate({ email }, { email_verified: true });
+    const updateUser = await User.findOneAndUpdate({ email }, { 
+        email_verified: true,
+        $push: { notif: {
+            typeOfNotif: 'email-verified'
+        }}
+    });
 
     if(!updateUser) return res.status(500).send("server error");
 
@@ -203,7 +263,10 @@ const changePasswordSignPage = asyncHandler( async(req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     const user = await User.updateOne({ email: email }, { 
-        password: hashedPassword, attempts: 0, email_verified: true
+        password: hashedPassword, attempts: 0, email_verified: true,
+        $push: { notif: {
+            typeOfNotif: 'password-change'
+        }}
     });
 
     if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
@@ -347,14 +410,13 @@ const getUserInfo = asyncHandler(async(req, res) => {
     };
 
     const user = await User.findOne({ _id: id })
-        .select('_id email_verified username usernameEN email role address addressEN phone favourites books notif');
+        .select('_id email_verified username email role address addressEN phone favourites books notif first_name last_name first_name_en last_name_en account_type');
 
     if(!user) return res.status(404).json({ message: 'not exist error' });
 
     res.status(200).json({
         user_id: user._id, 
         user_username: user.username, 
-        user_usernameEN: user.usernameEN, 
         user_email: user.email,
         address: user.address,
         addressEN: user.addressEN,
@@ -365,7 +427,12 @@ const getUserInfo = asyncHandler(async(req, res) => {
         my_books: user.books,
         my_fav: user.favourites,
         storage_key: secretKey,
-        notifications: user.notif
+        notifications: user.notif,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        firstNameEN: user.first_name_en,
+        lastNameEN: user.last_name_en,
+        accountType: user.account_type
     });
 
 });
@@ -468,7 +535,10 @@ const changePassword = asyncHandler(async(req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     const user = await User.updateOne({ email: email }, { 
-        password: hashedPassword, attempts: 0, email_verified: true
+        password: hashedPassword, attempts: 0, email_verified: true,
+        $push: { notif: {
+            typeOfNotif: 'password-change'
+        }}
     });
 
     if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
@@ -493,6 +563,34 @@ const logoutUser = asyncHandler(async(req, res) => {
     res.send("Log out suucessfully");   
 
 });
+
+const askConvertToHost = async(req, res) => {
+
+    try {
+
+        const id = req?.user?.id;
+
+        if(!id || !mongoose.Types.ObjectId.isValid(id))
+            return res.status(400).json({ message: "request error" });
+
+        const updatedUser = await User.updateOne({ _id: id }, {
+            ask_convert_to_host: true
+        });
+
+        console.log(updatedUser);
+
+        if(updatedUser.modifiedCount < 1 || updatedUser.acknowledged === false) {
+            return res.status(500).send("server error");
+        }
+
+        res.status(201).json({ message: 'success' });
+
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+
+};
 
 const deleteAccount = asyncHandler(async(req, res) => {
 
@@ -566,7 +664,7 @@ const getFavourites = async(req, res) => {
             console.log(user.favourites);
 
         const properties = await Property.find({ _id: user.favourites }).limit(Number(cardsPerPage) > 36 ? 36 : Number(cardsPerPage))
-            .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN price discount specific_catagory')
+            .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data prices discount specific_catagory')
             .sort({ createdAt: -1 }).skip(isValidNumber(Number(skip), 36) ? Number(skip) : 0);
 
             console.log(properties);
@@ -665,7 +763,7 @@ const getBooks = async(req, res) => {
         console.log(idsArr);
 
         const properties = await Property.find({ _id: idsArr }).limit(Number(cardsPerPage) > 36 ? 36 : Number(cardsPerPage))
-        .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN price discount specific_catagory')
+        .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data prices discount specific_catagory')
         .sort({ createdAt: -1 }).skip(isValidNumber(Number(skip), 36) ? Number(skip) : 0);
 
         console.log(properties);
@@ -736,6 +834,12 @@ const addToBooks = async(req, res) => {
                     booked_property_unit: property.unit_code,
                     booked_property_image: property.images?.at(0),
                     guest_name: username
+                }},
+                $push: { notif: {
+                    typeOfNotif: 'book', 
+                    targettedId: propertyId,
+                    userId: id,
+                    name: username
                 }}
             });
 
@@ -752,6 +856,12 @@ const addToBooks = async(req, res) => {
                     booked_property_unit: property.unit_code,
                     booked_property_image: property.images?.at(0),
                     guest_name: username
+                }},
+                $push: { notif: {
+                    typeOfNotif: 'book', 
+                    targettedId: propertyId,
+                    userId: id,
+                    name: username
                 }}
             });
 
@@ -890,31 +1000,40 @@ const editUser = async(req, res) => {
 
         const { id } = req.user;
 
-        const { updateUsername, updateAddress, updatePhone, updateUsernameEN, updateAddressEN } = req.body;
+        const { 
+            updateFirstName, updateFirstNameEN, updateLastName, 
+            updateLastNameEN, updateUsername, updateAddress, 
+            updateAddressEN, updatePhone,  
+        } = req.body;
 
-        console.log(req.body);
+        // console.log(req.body);
 
         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'request error' });
         
-        if(updateUsername && !isValidText(updateUsername)) return res.status(400).json({ message: 'username error' });
-
+        if(updateFirstName && !isValidText(updateFirstName)) return res.status(400).json({ message: 'first name error' });
+        if(updateFirstNameEN && !isValidText(updateFirstNameEN)) return res.status(400).json({ message: 'first name en error' });
+        if(updateLastName && !isValidText(updateLastName)) return res.status(400).json({ message: 'last name error' });
+        if(updateLastNameEN && !isValidText(updateLastNameEN)) return res.status(400).json({ message: 'last name en error' });
+        if(updateUsername && !isValidUsername(updateUsername)) return res.status(400).json({ message: 'username error' });
         if(updateAddress && !isValidText(updateAddress)) return res.status(400).json({ message: 'address error' });
-        
-        if(updateAddressEN && !isValidText(updateAddress)) return res.status(400).json({ message: 'address error' });
-
+        if(updateAddressEN && !isValidText(updateAddressEN)) return res.status(400).json({ message: 'address en error' });
         if(updatePhone && !isValidText(updatePhone)) return res.status(400).json({ message: 'phone error' });
-        
-        if(updateUsernameEN && !isValidText(updateUsernameEN)) return res.status(400).json({ message: 'phone error' });
 
         let updateObj = {};
 
+        if(updateFirstName) updateObj.first_name = updateFirstName;
+        if(updateFirstNameEN) updateObj.first_name_en = updateFirstNameEN;
+        if(updateLastName) updateObj.last_name = updateLastName;
+        if(updateLastNameEN) updateObj.last_name_en = updateLastNameEN;
+        if(updateUsername) updateObj.username = updateUsername;
         if(updateAddress) updateObj.address = updateAddress;
         if(updateAddressEN) updateObj.addressEN = updateAddressEN;
         if(updatePhone) updateObj.phone = updatePhone;
-        if(updateUsername) updateObj.username = updateUsername;
-        if(updateUsernameEN) updateObj.usernameEN = updateUsernameEN;
 
-        const user = await User.findOneAndUpdate({ _id: id, email_verified: true }, updateObj, { new: true }).select('username usernameEN address addressEN phone');
+        const user = await User.findOneAndUpdate({ _id: id, email_verified: true }, updateObj, { new: true })
+        .select('username address addressEN phone first_name first_name_en last_name last_name_en');
+
+        console.log(user);
 
         if(!user) return res.status(400).json({ message: 'access error' });
         
@@ -922,16 +1041,16 @@ const editUser = async(req, res) => {
     
     } catch (err) {
         console.log(err.message);
-        return res.status(500).json({ message: err.message });
+        return res.status(500).json({ message: 'server error' });
     }
 
 };
 
 module.exports = {
-    registerUser, sendCodeToEmail, sendCodeToEmailSignPage, 
+    registerUser, checkUsername, sendCodeToEmail, sendCodeToEmailSignPage, 
     verifyEmail, changePasswordSignPage, loginUser,
     getUserInfo, refreshToken, changePassword,
-    logoutUser, deleteAccount, getFavourites,
+    logoutUser, askConvertToHost, deleteAccount, getFavourites,
     addToFavourite, removeFromFavourite,
     getBooks, addToBooks, removeFromBooks, 
     getGuests, verifyGuestBook, deleteGuestBook, editUser

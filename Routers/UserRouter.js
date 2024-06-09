@@ -1,10 +1,12 @@
 const express = require('express');
-const { registerUser, sendCodeToEmail, verifyEmail, loginUser, getUserInfo, refreshToken, changePassword, logoutUser, deleteAccount, getFavourites, addToFavourite, removeFromFavourite, getBooks, addToBooks, removeFromBooks, editUser, getAllUploadedFiles, getSecretStorageKey, sendCodeToEmailSignPage, verifyEmailSignPage, changePasswordSignPage, verifyGuestBook, deleteGuestBook, getGuests } = require('../Controllers/UserController.js');
+const { registerUser, sendCodeToEmail, verifyEmail, loginUser, getUserInfo, refreshToken, changePassword, logoutUser, deleteAccount, getFavourites, addToFavourite, removeFromFavourite, getBooks, addToBooks, removeFromBooks, editUser, getAllUploadedFiles, getSecretStorageKey, sendCodeToEmailSignPage, verifyEmailSignPage, changePasswordSignPage, verifyGuestBook, deleteGuestBook, getGuests, checkUsername, askConvertToHost } = require('../Controllers/UserController.js');
 const verifyJWT = require('../middleware/VerifyJWT.js');
 const verifyReCaptcha = require('../middleware/VerifyReCaptcha.js');
 const router = express.Router();
 
 router.post("/register", verifyReCaptcha, registerUser);
+
+router.get("/check-username/:username", checkUsername);
 
 router.post("/send-code", verifyJWT, sendCodeToEmail);
 
@@ -23,6 +25,8 @@ router.post("/refresh-token", refreshToken);
 router.post("/change-password", changePassword);
 
 router.post("/logout", verifyJWT, logoutUser);
+
+router.put("/ask-for-host", verifyJWT, askConvertToHost);
 
 router.delete("/delete", verifyJWT, deleteAccount);
 

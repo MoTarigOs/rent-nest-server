@@ -9,10 +9,8 @@ const arrayLimitSchema = (val) => {
 const userSchema = mongoose.Schema({
     username: {
         type: String,
+        unique: [true, 'username error'],
         required: [true, "username is required"]
-    },
-    usernameEN: {
-        type: String
     },
     email: {
         type: String,
@@ -27,6 +25,12 @@ const userSchema = mongoose.Schema({
         minLength: 8,
         maxLength: 100
     },
+    account_type: { type: String, max: 5, default: 'guest' },
+    ask_convert_to_host: { type: Boolean, default: false },
+    first_name: { type: String, max: 20 },
+    first_name_en: { type: String, max: 20 },
+    last_name: { type: String, max: 20 },
+    last_name_en: { type: String, max: 20 },
     role: {
         type: String,
         default: 'user',
@@ -74,7 +78,12 @@ const userSchema = mongoose.Schema({
         validate: [arrayLimitSchema, 'array limit error']
     },
     notif: {
-        type: [{ typeOfNotif: String, targettedId: mongoose.Types.ObjectId }],
+        type: [{ 
+            typeOfNotif: String, 
+            targettedId: mongoose.Types.ObjectId, 
+            userId: mongoose.Types.ObjectId,
+            name: String,
+        }],
         validate: [arrayLimitSchema, 'array limit error']
     },
     rating_score: { type: Number, max: 5, min: 0, default: 0 }, 

@@ -390,6 +390,10 @@ const getUsers = async(req, res) => {
                     return { isBlocked: true};
                 case 'blocked-false':
                     return { isBlocked: false};
+                case 'Host_requests':
+                    return { account_type: { $ne: 'host' }, ask_convert_to_host: true };
+                case 'hosts':
+                    return { account_type: 'host' };        
                 default: 
                     return {};        
             }
@@ -421,8 +425,35 @@ const getUserByEmail = async(req, res) => {
 
         if(!isValidEmail(email)) return res.status(400).json({ message: 'email error' });
         
-        const user = await User.findOne({ email })
-            .select('_id username email role address email_verified books blocked isBlocked books');
+        const user = await User.findOne({ email }) 
+            .select('_id first_name first_name_en username email phone role address addressEN account_type ask_convert_to_host email_verified books blocked isBlocked books');
+
+        if(!user) return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(200).json(user);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+
+};
+
+const getUserById = async(req, res) => {
+
+    try {
+
+        if(!req || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { userId } = req.params;
+
+        console.log('by id: ', userId);
+
+        if(!userId || !mongoose.Types.ObjectId.isValid(userId))
+            return res.status(400).json({ message: 'request error' });
+        
+        const user = await User.findOne({ _id: userId }) 
+            .select('_id first_name first_name_en username email phone role address addressEN account_type ask_convert_to_host email_verified books blocked isBlocked books');
 
         if(!user) return res.status(404).json({ message: 'not exist error' });
 
@@ -661,6 +692,40 @@ const demoteFromAdmin = async(req, res) => {
 
 };
 
+const convertToHost = async(req, res) => {
+
+    try {
+
+        const userId = req?.params?.userId;
+
+        if(!userId || !mongoose.Types.ObjectId.isValid(userId))
+            return res.status(400).json({ message: "request error" });
+
+        const updatedUser = await User.updateOne({
+             _id: userId, 
+             ask_convert_to_host: true, 
+             account_type: { $ne: 'host' } 
+        }, {
+            ask_convert_to_host: false,
+            account_type: 'host',
+            $push: { notif: { typeOfNotif: 'converted-to-host', targettedId: userId } }
+        });
+        
+        if(updatedUser.modifiedCount < 1 || updatedUser.acknowledged === false) {
+            return res.status(500).send("server error");
+        }
+
+        // send notification to user email
+
+        res.status(201).json({ message: 'success' });
+
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+
+};
+
 module.exports = {
     getReports,
     deleteReport,
@@ -676,10 +741,12 @@ module.exports = {
     deleteReviewsAdmin,
     getUsers,
     getUserByEmail,
+    getUserById,
     blockUser, 
     unBlockUser,
     deleteAccountAdmin,
     getPropertiesByFilesDetails,
     promoteToAdmin,
-    demoteFromAdmin
-}
+    demoteFromAdmin,
+    convertToHost
+};

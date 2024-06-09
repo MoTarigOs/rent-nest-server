@@ -8,6 +8,7 @@ const givenSet = "5LSQYvkBOwdjNEyleRIc1mW68rHP2MzVao37hfJKsngtDx4ZiGCpX9AqFuUbT"
 const givenSetOriginal = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789abcdefghijklmnopqrstuvwxyz";
 const testChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz -_.,+=!~;:#@0123456789أابتثجحخدذرزعغلمنهويئسشصضطكفقةىءؤ؛×÷ّآ,؟.';
 const validator = require('validator');
+const { default: mongoose } = require('mongoose');
 
 const allowedSpecificCatagory = [
     'farm', 'apartment', 'resort', 'students', 
@@ -638,10 +639,13 @@ const sendToEmail = async(msg, userEmail, gmailAccount, appPassword) => {
 
             var transporter = nodemailer.createTransport({
                 service: 'gmail',
+                host: "smtp.gmail.com",
+                port: 587,
                 auth: {
                     user: gmailAccount,
                     pass: appPassword  //Account App password
-                }
+                },
+                from: gmailAccount
             });
 
             let htmlText = `<html lang="en" style="margin: 0; padding: 0; width: 100%"><body style="margin: 0; padding: 0; width: 100%"><div style="width: 100%; display: flex; justify-content: center; align-items: center;"><h1 style="height: fit-content; font-size: 42px; border: solid 2px; border-radius: 4px; padding: 8px 16px; letter-spacing: 1px;">${sanitizedText}</h1></div></body></html>`;
@@ -649,7 +653,8 @@ const sendToEmail = async(msg, userEmail, gmailAccount, appPassword) => {
             var mailOptions = {
                 from: gmailAccount,
                 to: userEmail,
-                subject: 'Rent Nest', //title
+                subject: 'Rent Nest', //title,
+                text: `Hello! This email is for Rent Nest Account verification <br><br> Your Code is: ${sanitizedText}<br><br> please don't share it with any one! beside the verification input field.`,
                 html: htmlText
             };
     
@@ -685,16 +690,14 @@ const isValidPassword = (ps) => {
 
 };
 
-const isValidUsername = async(username) => {
+const isValidUsername = (username) => {
 
-    if(typeof username !== "string") return false;
+    if(!username?.length > 0 || typeof username !== "string") return false;
 
-    var regexPattern = /^[A-Za-z][A-Za-z0-9_]{1,45}$/;
+    var regexPattern = /^[A-Za-z][A-Za-z0-9_]{1,32}$/;
 
     if(!regexPattern.test(username))
       return false;
-    
-    if(user) return false;
 
     return true;
 
@@ -716,6 +719,8 @@ const isValidEmail = (email) => {
 const isOkayText = s => (!/[^\u0600-\u06FF\u0020-\u0040\u005B-\u0060\u007B-\u007E-\u0000-\u007F]/.test(s));
 
 const isValidText = (text, minLength) => {
+
+  if(!text) return false;
 
     if(!minLength && (!text || typeof text !== "string" || text.length <= 0)) return false;
 
@@ -851,26 +856,69 @@ const isValidContacts = (contacts) => {
 
 const isValidDetails = (dtl) => {
 
-    return true;
-
     if(!dtl) return false;
 
-    if(dtl.insurance !== false && dtl.insurance !== true) return false;
+    if(typeof dtl.insurance !== 'boolean') return false;
+
+    if(dtl.vehicle_specifications?.driver && typeof dtl.vehicle_specifications?.driver !== 'boolean') {console.log('1'); return false};
+    if(!isValidText(dtl.vehicle_specifications?.rent_type || 'pass')) {console.log('2'); return false};
+    if(!isValidText(dtl.vehicle_specifications?.company || 'pass')) {console.log('3'); return false};
+    if(!isValidText(dtl.vehicle_specifications?.model || 'pass')) {console.log('4'); return false};
+    if(!isValidText(dtl.vehicle_specifications?.color || 'pass')) {console.log('5'); return false};
+    if(dtl.vehicle_specifications?.year && !isValidNumber(dtl.vehicle_specifications?.year || 200, 2100, 1901)) {console.log('6'); return false};
+    if(!isValidText(dtl.vehicle_specifications?.gearbox || 'pass')) {console.log('7'); return false};
+    if(!isValidText(dtl.vehicle_specifications?.fuel_type || 'pass')) {console.log('8'); return false};
+
+    const dtlsArrObjects = [
+      ...(dtl.guest_rooms ? dtl.guest_rooms : []),         
+      ...(dtl.kitchen?.array ? dtl.kitchen?.array : []), 
+      ...(dtl.rooms ? dtl.rooms : []), 
+      ...(dtl.pool?.array ? dtl.pool?.array : []), 
+      ...(dtl.bathrooms?.array ? dtl.bathrooms?.array : []), 
+    ];
+
+   // console.log(dtlsArrObjects);
 
     const dtlsArr = [
-        ...(dtl.guest_rooms ? dtl.guest_rooms : []), 
-        ...(dtl.facilities ? dtl.facilities : []), 
-        ...(dtl.bathrooms ? dtl.bathrooms : []), 
-        ...(dtl.kitchen ? dtl.kitchen : []), 
-        ...(dtl.rooms ? dtl.rooms : []), 
-        ...(dtl.vehicle_specifications ? dtl.vehicle_specifications : []), 
-        ...(dtl.vehicle_addons ? dtl.vehicle_addons : []),
+        ...(dtl.bathrooms?.companians ? dtl.bathrooms?.companians : []), 
+        ...(dtl.kitchen?.companians ? dtl.kitchen?.companians : []), 
+        ...(dtl.pool?.companians ? dtl.pool?.companians : []), 
+        ...(dtl.facilities ? dtl.facilities : []),
+        ...(dtl.features ? dtl.features : []),
         ...(dtl.near_places ? dtl.near_places : [])
     ];
 
+    console.log(dtlsArr);
+
+    if(!dtlsArr?.length > 0 && !dtlsArrObjects?.length > 0) return true;
+
     for(let i = 0; i < dtlsArr.length; i++){
-        if(!isValidText(dtlsArr[i])) return false;
+        if(!isValidText(dtlsArr[i])) {console.log('dtlsArr error: ', i); return false};
     };
+
+    for (let i = 0; i < dtlsArrObjects.length; i++) {
+
+        const keys = Object.keys(dtlsArrObjects[i]);
+        const keysAllowed = ['capacity', '_id', 'single_beds', 'double_beds', 'depth', 'dim'];
+        if(keys?.length > keysAllowed.length) return false;
+        for (let j = 0; j < keys.length; j++) {
+          const element = keys[j];
+          if(element === 'dim'){
+            const dimensionKeys = Object.keys(dtlsArrObjects[i].dim);
+            if(!['x', 'y'].includes(dimensionKeys[0])) return false;
+            if(!['x', 'y'].includes(dimensionKeys[1])) return false;
+          }
+          if(!keysAllowed.includes(element)) return false;  
+        }
+        if(dtlsArrObjects[i]?.capacity && !isValidNumber(dtlsArrObjects[i]?.capacity)) {console.log('1'); return false};
+        if(dtlsArrObjects[i]?.dim?.x && !isValidNumber(dtlsArrObjects[i]?.dim?.x)) {console.log('2'); return false};
+        if(dtlsArrObjects[i]?.dim?.y && !isValidNumber(dtlsArrObjects[i]?.dim?.y)) {console.log('3'); return false};
+        if(dtlsArrObjects[i]?.single_beds && !isValidNumber(dtlsArrObjects[i]?.single_beds)) {console.log('4'); return false};
+        if(dtlsArrObjects[i]?.double_beds && !isValidNumber(dtlsArrObjects[i]?.double_beds)) {console.log('5'); return false};
+        if(dtlsArrObjects[i]?.depth && !isValidNumber(dtlsArrObjects[i]?.depth)) {console.log('6'); return false};
+        if(dtlsArrObjects[i]?._id && !mongoose.Types.ObjectId.isValid(dtlsArrObjects[i]?._id)) {console.log('7'); return false};
+    
+    }
 
     return true;
 };
@@ -902,6 +950,29 @@ const isValidTerms = (trms) => {
     };
 
     return true;
+
+};
+
+const isValidPrices = (prices) => {
+
+  let atLeastOneExist = false;
+  
+  if(prices?.daily && !isValidNumber(prices?.daily)) return false;
+  else if(prices?.daily > 0) atLeastOneExist = true;
+  
+  if(prices?.weekly && !isValidNumber(prices?.weekly)) return false;
+  else if(prices?.weekly > 0) atLeastOneExist = true;
+  
+  if(prices?.monthly && !isValidNumber(prices?.monthly)) return false;
+  else if(prices?.monthly > 0) atLeastOneExist = true;
+
+  if(prices?.seasonly && !isValidNumber(prices?.seasonly)) return false;
+  else if(prices?.seasonly > 0) atLeastOneExist = true;
+
+  if(prices?.yearly && !isValidNumber(prices?.yearly)) return false;
+  else if(prices?.yearly > 0) atLeastOneExist = true;
+
+  return atLeastOneExist;
 
 };
 
@@ -982,6 +1053,7 @@ const updatePropertyRating = async(propertyId, rateObj, type, newScore, oldScore
 
     let deletedScore = 0;
     let numOfDeletedReviews = 0;
+    let deletedScoreArray = [];
 
     console.log('reviews: ', reviews);
     for (let i = 0; i < reviews.length; i++) {
@@ -989,6 +1061,7 @@ const updatePropertyRating = async(propertyId, rateObj, type, newScore, oldScore
       if(deletedWriterIds.includes(review.writer_id?.toString())){
         deletedScore += review.user_rating;
         numOfDeletedReviews += 1;
+        deletedScoreArray.push(deletedScore)
       }
     }
 
@@ -1004,10 +1077,34 @@ const updatePropertyRating = async(propertyId, rateObj, type, newScore, oldScore
 
     console.log(newRatingsObj);
 
+    const getNumOfReviewsObj = () => {
+
+      if(!deletedScoreArray?.length > 0) return null;
+
+        let fives = 0, fours = 0, threes = 0, twos = 0, ones = 0;
+        for (let i = 0; i < deletedScoreArray.length; i++) {
+          const x = Math.round(deletedScoreArray[i]);
+          if(x === 5) fives += 1;
+          if(x === 4) fours += 1;
+          if(x === 3) threes += 1;
+          if(x === 2) twos += 1;
+          if(x === 1) ones += 1;
+        }
+
+        let obj = {};
+
+        if(fives > 0) obj = { 'num_of_reviews_percentage.five': -fives };
+        if(fours > 0) obj = { ...obj, 'num_of_reviews_percentage.four': -fours };
+        if(threes > 0) obj = { ...obj, 'num_of_reviews_percentage.three': -threes };
+        if(twos > 0) obj = { ...obj, 'num_of_reviews_percentage.two': -twos };
+        if(ones > 0) obj = { ...obj, 'num_of_reviews_percentage.one': -ones };
+
+    };
+
     try {
 
       const newProp = await Property.findOneAndUpdate({ _id: propertyId }, { 
-        ratings: { val: 0, no: 0 }
+        ratings: newRatingsObj, $inc: getNumOfReviewsObj()
       }, { new: true });
 
       if(!newProp) return null;
@@ -1257,6 +1354,8 @@ const updateHostEvaluation = async(id, type, newScore, oldScore, deletedScore, n
 
 };
 
+const sendNotification = async(toThisEmail) => {};
+
 module.exports = {
     JordanBoundryPoints,
     citiesArray,
@@ -1278,6 +1377,7 @@ module.exports = {
     isValidDetails,
     isValidEnData,
     isValidTerms,
+    isValidPrices,
     arrayLimitSchema,
     updatePropertyRating,
     isValidBookDateFormat,

@@ -23,7 +23,8 @@ const VerCodeSchema = mongoose.Schema({
         type: Number
     },
     storage_key_attempts: { type: Number, max: 30, default: 0 },
-    attempts: { type: Number, max: 30, default: 0 }
+    attempts: { type: Number, max: 30, default: 0 },
+    // total_codes_sent: { type: Number, default: 0 },
 }, { timestamps: true });
 
 module.exports = mongoose.model('VerCode', VerCodeSchema);
