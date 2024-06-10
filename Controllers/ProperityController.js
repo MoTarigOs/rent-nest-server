@@ -303,9 +303,11 @@ const createProperty = async(req, res) => {
         
         const { id, email } = req.user;
 
-        const user = await User.findOne({ _id: id, email_verified: true, account_type: 'host' });
+        // important host account !!!
+        
+        // const user = await User.findOne({ _id: id, email_verified: true, account_type: 'host' });
 
-        if(!user) return res.status(400).json({ message: 'User not exist' });
+        // if(!user) return res.status(400).json({ message: 'User not exist' });
 
         console.log(req.body, req.body?.details);
 
