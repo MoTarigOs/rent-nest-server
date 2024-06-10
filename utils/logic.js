@@ -629,13 +629,35 @@ const generateRandomCode = () => {
 
 };
 
-const sendToEmail = async(msg, userEmail, gmailAccount, appPassword) => {
+const sendToEmail = async(msg, userEmail, gmailAccount, appPassword, type) => {
 
     return new Promise(function(resolve, reject) {
 
         try{
 
             const sanitizedText = validator.escape(msg);
+
+            const getHtmlTxt = () => {
+              switch(type){
+                case 'create-prop':
+                  return `<html lang="en" style="margin: 0; padding: 0; width: 100%"><body style="margin: 0; padding: 0; width: 100%"><div style="width: 100%; display: flex; justify-content: center; align-items: center;"><h1 style="height: fit-content; font-size: 42px; letter-spacing: 1px;">We are happy to inform yout that Your new unit had been created :)</h1></div></body></html>`;
+                default:
+                  return `<html lang="en" style="margin: 0; padding: 0; width: 100%"><body style="margin: 0; padding: 0; width: 100%"><div style="width: 100%; display: flex; justify-content: center; align-items: center;"><h1 style="height: fit-content; font-size: 42px; border: solid 2px; border-radius: 4px; padding: 8px 16px; letter-spacing: 1px;">${sanitizedText}</h1></div></body></html>`;
+              }
+            };
+
+            const getTxt = () => {
+              switch(type){
+                case 'create-prop':
+                  return 'We are happy to inform yout that Your new unit had been created :)';
+                default:
+                  return `Hello! This email is for Rent Nest Account verification <br><br> Your Code is: ${sanitizedText}<br><br> please don't share it with any one! beside the verification input field.`;
+              }
+            };
+            
+            let htmlText = getHtmlTxt();
+
+            let txt = getTxt();
 
             var transporter = nodemailer.createTransport({
                 service: 'gmail',
@@ -647,14 +669,12 @@ const sendToEmail = async(msg, userEmail, gmailAccount, appPassword) => {
                 },
                 from: gmailAccount
             });
-
-            let htmlText = `<html lang="en" style="margin: 0; padding: 0; width: 100%"><body style="margin: 0; padding: 0; width: 100%"><div style="width: 100%; display: flex; justify-content: center; align-items: center;"><h1 style="height: fit-content; font-size: 42px; border: solid 2px; border-radius: 4px; padding: 8px 16px; letter-spacing: 1px;">${sanitizedText}</h1></div></body></html>`;
     
             var mailOptions = {
                 from: gmailAccount,
                 to: userEmail,
                 subject: 'Rent Nest', //title,
-                text: `Hello! This email is for Rent Nest Account verification <br><br> Your Code is: ${sanitizedText}<br><br> please don't share it with any one! beside the verification input field.`,
+                text: txt,
                 html: htmlText
             };
     

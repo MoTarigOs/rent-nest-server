@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Property = require('../Data/PropertyModel.js');
 const Report = require('../Data/ReportModel.js');
 const User = require('../Data/UserModel.js');
-const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts, isValidEnData, getUnitCode, updateHostEvaluation, isValidPrices } = require('../utils/logic.js');
+const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts, isValidEnData, getUnitCode, updateHostEvaluation, isValidPrices, sendToEmail, isValidEmail } = require('../utils/logic.js');
 const sortLatDistance = 0.1;
 const sortLongDistance = 0.3;
 
@@ -301,7 +301,7 @@ const createProperty = async(req, res) => {
 
         if(!req || !req.user || !req.body) return res.status(400).json({ message: 'request error' });
         
-        const { id } = req.user;
+        const { id, email } = req.user;
 
         const user = await User.findOne({ _id: id, email_verified: true, account_type: 'host' });
 
@@ -399,6 +399,9 @@ const createProperty = async(req, res) => {
                 name: property.title
             }}
         });
+
+        if(isValidEmail(email))
+            sendToEmail('create-prop', email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD, 'create-prop');
 
         return res.status(201).json({
             id: property._id

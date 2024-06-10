@@ -664,7 +664,7 @@ const getFavourites = async(req, res) => {
             console.log(user.favourites);
 
         const properties = await Property.find({ _id: user.favourites }).limit(Number(cardsPerPage) > 36 ? 36 : Number(cardsPerPage))
-            .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data prices discount specific_catagory')
+            .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data prices discount specific_catagory')
             .sort({ createdAt: -1 }).skip(isValidNumber(Number(skip), 36) ? Number(skip) : 0);
 
             console.log(properties);
@@ -763,7 +763,7 @@ const getBooks = async(req, res) => {
         console.log(idsArr);
 
         const properties = await Property.find({ _id: idsArr }).limit(Number(cardsPerPage) > 36 ? 36 : Number(cardsPerPage))
-        .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data prices discount specific_catagory')
+        .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data prices discount specific_catagory')
         .sort({ createdAt: -1 }).skip(isValidNumber(Number(skip), 36) ? Number(skip) : 0);
 
         console.log(properties);
