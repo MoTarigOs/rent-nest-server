@@ -398,6 +398,8 @@ const getUserInfo = asyncHandler(async(req, res) => {
 
     const secretKey = generateSecretKey(id, username);
 
+    if(!secretKey) return res.status(500).json({ message: 'refresh the page' });
+
     const secret = await VerCode.findOneAndUpdate({ email }, {
         storage_key: secretKey, storage_key_date: Date.now(), storage_key_attempts: 0
     });
@@ -661,13 +663,9 @@ const getFavourites = async(req, res) => {
         if(!user || !user.favourites || user.favourites.length <= 0) 
             return res.status(404).json({ message: 'not found error' });
 
-            console.log(user.favourites);
-
         const properties = await Property.find({ _id: user.favourites }).limit(Number(cardsPerPage) > 36 ? 36 : Number(cardsPerPage))
             .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data prices discount specific_catagory')
             .sort({ createdAt: -1 }).skip(isValidNumber(Number(skip), 36) ? Number(skip) : 0);
-
-            console.log(properties);
             
         if(!properties || properties.length <= 0) return res.status(400).json({ message: 'not exist error' });
 
@@ -760,13 +758,9 @@ const getBooks = async(req, res) => {
             idsArr.push(user.books[i].property_id);
         };
 
-        console.log(idsArr);
-
         const properties = await Property.find({ _id: idsArr }).limit(Number(cardsPerPage) > 36 ? 36 : Number(cardsPerPage))
         .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data prices discount specific_catagory')
         .sort({ createdAt: -1 }).skip(isValidNumber(Number(skip), 36) ? Number(skip) : 0);
-
-        console.log(properties);
 
         if(!properties || properties.length <= 0) return res.status(400).json({ message: 'not exist error' });
 
@@ -992,6 +986,48 @@ const deleteGuestBook = async(req, res) => {
 
 };
 
+const deleteNotifications = async(req, res) => {
+
+    try {
+       
+        const userId = req?.user?.id;
+
+        if(!mongoose.Types.ObjectId.isValid(userId)) 
+            return res.status(400).json({ message: 'request error' });
+
+        const idsArr = req?.params?.ids?.split(',');
+
+        console.log('idsArr: ', idsArr);
+
+        if(!idsArr?.length > 0 || !Array.isArray(idsArr))
+            return res.status(400).json({ message: 'request error' });
+
+        for (let i = 0; i < idsArr.length; i++) {
+            if(!mongoose.Types.ObjectId.isValid(idsArr[i]))
+                return res.status(400).json({ message: 'request error' });
+        }    
+
+        const user = await User.updateOne({ _id: userId }, {
+            $pull: {
+                notif: { 
+                  _id: { $in: idsArr }
+                }
+            }
+        });
+
+        if(user.modifiedCount < 1 || user.acknowledged === false) {
+            return res.status(500).send("server error");
+        }
+
+        res.status(201).json({ message: 'sucess' });
+        
+    } catch (err) {
+        console.log(err);    
+        return res.status(500).send("server error");
+    }
+
+};
+
 const editUser = async(req, res) => {
 
     try {
@@ -1053,5 +1089,5 @@ module.exports = {
     logoutUser, askConvertToHost, deleteAccount, getFavourites,
     addToFavourite, removeFromFavourite,
     getBooks, addToBooks, removeFromBooks, 
-    getGuests, verifyGuestBook, deleteGuestBook, editUser
+    getGuests, verifyGuestBook, deleteGuestBook, deleteNotifications, editUser
 };

@@ -1187,6 +1187,8 @@ const generateSecretKey = (userId, username) => {
 
   const dateNow = Date.now();
 
+  if(!randomCode1 || !randomCode2 || !randomCode3 || !dateNow) return null;
+
   const str = getOnlyEnglishAndNum(`${randomCode1}${dateNow}${randomCode2}${username}${randomCode3}`);
 
   return `${str.replaceAll('-', '0')}-${userId}`;

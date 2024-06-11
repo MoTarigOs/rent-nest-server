@@ -5,6 +5,7 @@ const User = require('../Data/UserModel.js');
 const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts, isValidEnData, getUnitCode, updateHostEvaluation, isValidPrices, sendToEmail, isValidEmail } = require('../utils/logic.js');
 const sortLatDistance = 0.1;
 const sortLongDistance = 0.3;
+const propSelectObj = '_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN prices discount specific_catagory';
 
 const getProperties = async(req, res) => {
 
@@ -304,12 +305,10 @@ const createProperty = async(req, res) => {
         const { id, email } = req.user;
 
         // important host account !!!
-        
+
         // const user = await User.findOne({ _id: id, email_verified: true, account_type: 'host' });
 
         // if(!user) return res.status(400).json({ message: 'User not exist' });
-
-        console.log(req.body, req.body?.details);
 
         const { 
             type_is_vehicle, specific_catagory, title, description, city, 
@@ -452,6 +451,43 @@ const getPropertyByUnitCode = async(req, res) => {
         if(!property) return res.status(404).json({ message: 'not exist error' });
 
         return res.status(200).json({ id: property._id });
+        
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ message: 'server error' });
+    };
+
+};
+
+const getPropertiesByIds = async(req, res) => {
+
+    try {
+
+        const ids = req?.params?.ids;
+        const skip = req?.params?.skip;
+        const limit = req?.params?.limit;
+
+        const idArray = ids?.split(',');
+
+        console.log('id array: ', idArray);
+
+        if(!Array.isArray(idArray) || !idArray?.length > 0)
+            return res.status(400).json({ message: 'request error' });
+
+        for (let i = 0; i < idArray.length; i++) {
+            if(!mongoose.Types.ObjectId.isValid(idArray[i]))
+                return res.status(400).json({ message: 'request error' });
+        }
+
+        const properties = await Property.find({ _id: idArray })
+        .select(propSelectObj).skip(skip);
+        // .limit(Number(limit) > 36 ? 36 : Number(limit))
+
+        console.log('props: ', properties);
+        
+        if(!properties) return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(200).json(properties);
         
     } catch (err) {
         console.log(err);
@@ -880,6 +916,8 @@ const deleteProperty = async(req, res) => {
 
         const prop = await Property.findOneAndDelete({ _id: propertyId, owner_id: id }).select('ratings title reviews owner_id');
 
+        console.log('deleting this: ', prop);
+        
         if(!prop) return res.status(403).json({ message: 'access error' });
 
         await updateHostEvaluation(id, 'remove all', null, null, null, null, prop.reviews);
@@ -908,6 +946,7 @@ module.exports = {
     createProperty,
     getProperty,
     getPropertyByUnitCode,
+    getPropertiesByIds,
     getOwnerProperty,
     getHostDetails,
     addReview,
