@@ -661,8 +661,8 @@ const editProperty = async(req, res) => {
 
         if(!req || !req.user || !req.params || !req.body) return res.status(400).json({ message: 'request error' });
 
-        const { id } = req.user;
-        const { propertyId } = req.params; en_data
+        const { id, email } = req.user;
+        const { propertyId } = req.params;
         const { 
             title, description, details, 
             terms_and_conditions, contacts, discount,
