@@ -402,7 +402,7 @@ const createProperty = async(req, res) => {
         });
 
         if(isValidEmail(email))
-            sendToEmail('create-prop', email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD, 'create-prop');
+            sendToEmail('انشاء وحدة', email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD, 'create-prop');
 
         return res.status(201).json({
             id: property._id
@@ -662,7 +662,7 @@ const editProperty = async(req, res) => {
         if(!req || !req.user || !req.params || !req.body) return res.status(400).json({ message: 'request error' });
 
         const { id } = req.user;
-        const { propertyId } = req.params;
+        const { propertyId } = req.params; en_data
         const { 
             title, description, details, 
             terms_and_conditions, contacts, discount,
@@ -731,7 +731,7 @@ const editProperty = async(req, res) => {
             }
             if(type_is_vehicle) obj.city = city;
             if(type_is_vehicle) obj.neighbourhood = neighbourhood;
-            if(!type_is_vehicle && en_data) delete obj.en_data['neighbourEN'];
+            if(!type_is_vehicle && enObj) delete obj.en_data['neighbourEN'];
             if(isValidNumber(Number(cancellation), 10, null, 'start-zero')) obj.cancellation = cancellation;
             return obj;
         };
@@ -749,6 +749,9 @@ const editProperty = async(req, res) => {
                 name: title
             }}
         });
+
+        if(isValidEmail(email))
+            sendToEmail('تعديل الوحدة', email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD, 'edit-prop');
 
         return res.status(201).json(property);
         
