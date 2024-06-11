@@ -64,9 +64,9 @@ const registerUser = async(req, res) => {
             password: hashedPassword,
             first_name: firstName,
             last_name: lastName,
-            account_type: accountType || 'guest',
             phone,
-            address
+            address,
+            ask_convert_to_host: accountType?.length > 0 ? true : false
         });
 
         if(!user) return res.status(400).json({ message: "input error" });
@@ -412,7 +412,7 @@ const getUserInfo = asyncHandler(async(req, res) => {
     };
 
     const user = await User.findOne({ _id: id })
-        .select('_id email_verified username email role address addressEN phone favourites books notif first_name last_name first_name_en last_name_en account_type');
+        .select('_id email_verified username email role address ask_convert_to_host addressEN phone favourites books notif first_name last_name first_name_en last_name_en account_type');
 
     if(!user) return res.status(404).json({ message: 'not exist error' });
 
@@ -434,7 +434,8 @@ const getUserInfo = asyncHandler(async(req, res) => {
         lastName: user.last_name,
         firstNameEN: user.first_name_en,
         lastNameEN: user.last_name_en,
-        accountType: user.account_type
+        accountType: user.account_type,
+        waitingToBeHost: user.ask_convert_to_host
     });
 
 });
