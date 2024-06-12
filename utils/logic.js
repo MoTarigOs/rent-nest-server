@@ -637,27 +637,74 @@ const sendToEmail = async(msg, userEmail, gmailAccount, appPassword, type) => {
 
             const sanitizedText = validator.escape(msg);
 
-            const getHtmlTxt = () => {
-              switch(type){
-                case 'create-prop':
-                  return `<html lang="en" style="margin: 0; padding: 0; width: 100%"><body style="margin: 0; padding: 0; width: 100%"><div style="width: 100%; display: flex; justify-content: center; align-items: center;"><h1 style="height: fit-content; font-size: 42px; letter-spacing: 1px;">We are happy to inform you that Your new unit had been created :)</h1></div></body></html>`;
-                default:
-                  return `<html lang="en" style="margin: 0; padding: 0; width: 100%"><body style="margin: 0; padding: 0; width: 100%"><div style="width: 100%; display: flex; justify-content: center; align-items: center;"><h1 style="height: fit-content; font-size: 42px; border: solid 2px; border-radius: 4px; padding: 8px 16px; letter-spacing: 1px;">${sanitizedText}</h1></div></body></html>`;
+            const getHtmlTxt = (isText, isTitle) => {
+
+              let htmlTitle = '';
+              let htmlHeader = '';
+              let htmlDesc = '';
+
+              if(type === 'create-prop'){
+                  htmlTitle = 'انشاء وحدة | Unit Created';
+                  htmlHeader = 'انشاء وحدة على منصة Rent Nest | Unit created on Rent Nest';
+                  htmlDesc = 'نود اعلامك بأن الوحدة التي قمت بارسالها تم اضافتها الى المنصة و في انتظار أن يتم مراجعتها و قبولها | We would like to inform you that the unit you sent has been added to the platform and is waiting to be reviewed and accepted.';
+              } else if(type === 'edit-prop'){
+                  htmlTitle = 'تعديل وحدة | Unit updated';
+                  htmlHeader = 'تعديل وحدة على المنصة | Edit Unit Rent Nest';
+                  htmlDesc = 'نود اعلامك بأنه قد تم تحميل التعديل على وحدة بانتظار مراجعته و قبوله | We would like to inform you that the amendment has been uploaded to a unit and is awaiting review and acceptance';
+              } else {
+                  htmlTitle = 'رمز أمان - Code - Rent Nest';
+                  htmlDesc = 'هذا الرمز تم ارساله من قبل Rent Nest, الرجاء عدم مشاركته مع أي شخص. | This code was sent by Rent Nest, please do not share it with anyone.';
+                  htmlHeader = sanitizedText;
               }
+
+              if(isTitle) return htmlTitle;
+
+              if(isText) return htmlDesc;
+
+              return `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta http-equiv="Content-Type" content="text/html charset=UTF-8" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">    
+                    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+                    <meta name="description" content=${htmlHeader}/>
+                    <title>${htmlTitle}</title>
+                </head>
+                
+                <body style="font-family: Arial, sans-serif; background-color: #f2f2f2; padding: 12px;">
+                
+                    <p style="display: none;">${htmlHeader}</p>
+                
+                    <table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="max-width: 600px; margin: 0 auto;">
+                        <tr>
+                            <td align="center" style="padding: 20px;">
+                                <img src="https://rent-nest-site.vercel.app/logo.png" style="padding-bottom: 32px; border-bottom: 1px solid rgb(180, 180, 180);"/>
+                                <h2 style="color: #00cacd; ${!type ? 'letter-spacing: 2px;' : ''} font-size: 32px;">${htmlHeader}</h2>
+                                <p style="color: #666; font-size: 18px;">${htmlDesc}</p>
+                            </td>
+                        </tr>
+                    </table>
+                
+                    <table cellpadding="0" cellspacing="0" border="0" width="100%"  bgcolor="#ffffff" style="max-width: 600px; margin: 0 auto;">
+                        <tr>
+                            <td align="center" style="padding: 32px;">
+                                <span style="color: #888;">You're receiving this email because you have notifications enabled on Rent Nest website. If you wish to stop receiving notifications, please navigate to the website and disable notification from profile page <a href="https://rent-nest-site.vercel.app/" style="color: #00cacd; text-decoration: none;">Rent Nest</a>.</span>
+                            </td>
+                        </tr>
+                    </table>
+                
+                </body>
+                </html>              
+              `;
             };
 
-            const getTxt = () => {
-              switch(type){
-                case 'create-prop':
-                  return 'We are happy to inform you that Your new unit had been created :)';
-                default:
-                  return `Hello! This email is for Rent Nest Account verification <br><br> Your Code is: ${sanitizedText}<br><br> please don't share it with any one! beside the verification input field.`;
-              }
-            };
-            
             let htmlText = getHtmlTxt();
 
-            let txt = getTxt();
+            let txt = getHtmlTxt(true);
+
+            let title = getHtmlTxt(false, true);
 
             var transporter = nodemailer.createTransport({
                 service: 'gmail',
@@ -673,7 +720,7 @@ const sendToEmail = async(msg, userEmail, gmailAccount, appPassword, type) => {
             var mailOptions = {
                 from: gmailAccount,
                 to: userEmail,
-                subject: 'Rent Nest', //title,
+                subject: title, //title,
                 text: txt,
                 html: htmlText
             };
