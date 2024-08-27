@@ -50,7 +50,7 @@ const registerUser = async(req, res) => {
             return res.status(400).json({message: "address error"});
 
         /* check email availability */
-        const emailAvailable = await User.findOne({ email: email }).select('email username');
+        const emailAvailable = await User.findOne({ email: email?.toLowerCase() }).select('email username');
         if(emailAvailable)
             return res.status(403).json({ message: "email error 2" }); 
         if(emailAvailable?.username === username)
@@ -60,7 +60,7 @@ const registerUser = async(req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await User.create({
             username,
-            email,
+            email: email?.toLowerCase(),
             password: hashedPassword,
             first_name: firstName,
             last_name: lastName,
@@ -292,7 +292,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
     let wasBlocked = false;
 
-    let user = await User.findOneAndUpdate({ email: email }, { 
+    let user = await User.findOneAndUpdate({ email: email?.toLowerCase() }, { 
         $inc: { attempts: 1 } 
     });
     
