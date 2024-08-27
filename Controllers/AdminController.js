@@ -897,12 +897,12 @@ const editPropertyAdmin = async(req, res) => {
 
         if(capacity && !isValidNumber(capacity, null, 0)) return res.status(400).json({ message: 'capacity error' });
 
-        if(customerType && customerType?.length > 0) {
-            for (let i = 0; i < customerType.length; i++) {
-                if(!isValidText(customerType[i]))
-                    return res.status(400).json({ message: 'customer type error' });
-            }
-        } 
+        // if(customerType && customerType?.length > 0) {
+        //     for (let i = 0; i < customerType.length; i++) {
+        //         if(!isValidText(customerType[i]))
+        //             return res.status(400).json({ message: 'customer type error' });
+        //     }
+        // } 
 
         if(landArea && !isValidText(landArea)) return res.status(400).json({ message: 'land area error' });
 
