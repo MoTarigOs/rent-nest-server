@@ -15,6 +15,8 @@ const reportProperty = async(req, res) => {
 
         const { propertyId } = req.query;
 
+        console.log('propId: ', propertyId);
+
         if(!mongoose.Types.ObjectId.isValid(propertyId) || !isValidText(text, 0))    
             return res.status(400).json({ message: 'input error' });
         

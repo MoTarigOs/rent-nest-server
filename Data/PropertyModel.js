@@ -85,6 +85,10 @@ const propertyShema = mongoose.Schema({
         monthly: Number,
         seasonly: Number,
         yearly: Number,
+        eventsPrice: Number,
+        thursdayPrice: Number,
+        fridayPrice: Number,
+        saturdayPrice: Number
     },
     unit_code: {
         type: Number,
@@ -92,7 +96,7 @@ const propertyShema = mongoose.Schema({
         sparse: true
     },
     vehicle_type: Number,
-    customer_type: { type: String },
+    customer_type: { type: [{ type: String, maxLength: 500 }], default: [], validate: [arrayLimitSchema, 'array limit error'] },
     capacity: { type: Number },
     cancellation: { type: Number },
     images: { 
@@ -133,7 +137,7 @@ const propertyShema = mongoose.Schema({
     },
     en_data: {
         english_details: { type: [{ enName: String, arName: String }], default: [], validate: [arrayLimitSchema, 'array limit error'] },
-        customerTypeEN: { type: String },
+        customerTypeEN: { type: [{ type: String, maxLength: 20 }], default: [], validate: [arrayLimitSchema, 'array limit error'] },
         titleEN: { type: String, maxLength: 250, index: 'text' },
         descEN: { type: String, maxLength: 4000, index: 'text' },
         neighbourEN: { type: String, maxLength: 100, index: 'text' }

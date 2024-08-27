@@ -33,6 +33,13 @@ app.use(function (req, res, next) {
 app.disable('x-powered-by');
 
 
+// check if req has user field, return 403 if it does have
+app.use((req, res, next) => {
+    if(!req || req.user) return res.status(403).json({ message: 'request error' });
+    else next();
+});
+
+
 // handle routers
 app.use("/user", require("./Routers/UserRouter.js"));
 app.use("/property", require("./Routers/ProperityRouter.js"));

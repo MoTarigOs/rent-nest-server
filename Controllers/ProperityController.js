@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Property = require('../Data/PropertyModel.js');
 const Report = require('../Data/ReportModel.js');
 const User = require('../Data/UserModel.js');
-const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts, isValidEnData, getUnitCode, updateHostEvaluation, isValidPrices, sendToEmail, isValidEmail } = require('../utils/logic.js');
+const { isValidText, allowedSpecificCatagory, isValidNumber, citiesArray, getCitiesArrayForFilter, isValidTerms, isValidDetails, updatePropertyRating, isValidPoint, isValidBookDateFormat, isValidContacts, isValidEnData, getUnitCode, updateHostEvaluation, isValidPrices, sendToEmail, isValidEmail, sendNotification, sendAdminNotification } = require('../utils/logic.js');
 const sortLatDistance = 0.1;
 const sortLongDistance = 0.3;
 const propSelectObj = '_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN prices discount specific_catagory';
@@ -31,7 +31,7 @@ const getProperties = async(req, res) => {
             isSearchMap
         } = req.query;
 
-        // console.log('min_rate: ', min_rate);
+        console.log('reservationType: ', reservationType);
         // console.log('quickFilter: ', quickFilter);
         // console.log('categories: ', categories);
         // console.log('bedroomFilter: ', bedroomFilter);
@@ -40,8 +40,8 @@ const getProperties = async(req, res) => {
         // console.log('customers: ', customers);
         // console.log('bathroomFacilities: ', bathroomFacilities);
         // console.log('bathroomsNum: ', bathroomsNum);
-        console.log('type_is_vehicle: ', type_is_vehicle);
-        console.log('vehicleType: ', vehicleType);
+        // console.log('type_is_vehicle: ', type_is_vehicle);
+        // console.log('vehicleType: ', vehicleType);
 
         // console.log('reached');
 
@@ -73,28 +73,77 @@ const getProperties = async(req, res) => {
 
         if(cardsPerPage && !isValidNumber(Number(cardsPerPage))) return res.status(400).json({ message: 'cards per page error' });
 
-        const getPriceFieldName = (isFilter) => {
+        const getPriceFieldName = (isFilter, invert) => {
 
-            const getFilterObj = isFilter ? { 
-                $gte: Number(price_range.split(',')[0]), 
-                $lte: Number(price_range.split(',')[1])
-            } : -1;
+            if(!invert) invert = 1;
+
+            const getFilterObj = (fftype) => {
+                if(!isFilter) return 1 * invert;
+                switch(fftype?.toLowerCase()){
+                    case 'daily':
+                        return {
+                            $gte: Number(price_range?.split(',')[0]), 
+                            $lte: Number(price_range?.split(',')[1])
+                        };
+                    case 'weekly':
+                        return {
+                            $lte: Number(price_range?.split(',')[1]) * 7
+                        };
+                    case 'monthly':
+                        return { 
+                            $lte: Number(price_range?.split(',')[1]) * 30
+                        };
+                    case 'yearly':
+                        return {
+                            $lte: Number(price_range?.split(',')[1]) * 365
+                        };
+                    default:
+                        return -1;
+                }
+            };
             
-            if(!isValidText(reservationType)) return { 'prices.daily': getFilterObj };
-            switch(reservationType){
+            if(!isValidText(reservationType)) return { 'prices.daily': getFilterObj(reservationType) };
+            if(!isFilter) switch(reservationType?.toLowerCase()){
                 case 'daily':
-                    return { 'prices.daily': getFilterObj };
+                    return { 'prices.daily': getFilterObj(reservationType) };
                 case 'weekly':
-                    return { 'prices.weekly': getFilterObj };
+                    return { 'prices.weekly': getFilterObj('weekly'), 'prices.daily': getFilterObj('daily') };
                 case 'monthly':
-                    return { 'prices.monthly': getFilterObj };
+                    return { 'prices.monthly': getFilterObj('monthly'), 'prices.weekly': getFilterObj('weekly'), 'prices.daily': getFilterObj('daily') };
                 case 'seasonly':
-                    return { 'prices.seasonly': getFilterObj };
+                    return { 'prices.seasonly': getFilterObj('seasonly') };
                 case 'yearly':
-                    return { 'prices.yearly': getFilterObj };
+                    return { 'prices.yearly': getFilterObj('yearly'), 'prices.monthly': getFilterObj('monthly'), 'prices.weekly': getFilterObj('weekly'), 'prices.daily': getFilterObj('daily') };
                 default:
-                    return { 'prices.daily': getFilterObj };
+                    return { 'prices.daily': getFilterObj('daily') };
             }
+            else switch(reservationType?.toLowerCase()){
+                case 'daily':
+                    return { 'prices.daily': getFilterObj('daily') };
+                case 'weekly':
+                    return { $or: [ 
+                         { 'prices.weekly': getFilterObj('weekly') },  
+                         { 'prices.daily': getFilterObj('daily') }
+                    ]};
+                case 'monthly':
+                    return { $or: [ 
+                        { 'prices.monthly': getFilterObj('monthly') },  
+                        { 'prices.weekly': getFilterObj('weekly') },  
+                        { 'prices.daily': getFilterObj('daily') }
+                   ]};
+                case 'seasonly':
+                    return { 'prices.daily': getFilterObj('daily') };
+                case 'yearly':
+                    return { $or: [ 
+                        { 'prices.yearly': getFilterObj('yearly') },  
+                        { 'prices.monthly': getFilterObj('monthly') },  
+                        { 'prices.weekly': getFilterObj('weekly') },  
+                        { 'prices.daily': getFilterObj('daily') }
+                   ]};
+                default:
+                    return { 'prices.daily': getFilterObj('daily') };
+            }
+
         };
 
         const filterObj = (isCount) => {
@@ -145,9 +194,9 @@ const getProperties = async(req, res) => {
             
             if(customers && isValidText(customers)){
                 if(!isEnglish){
-                    obj.customer_type = customers.split(',');
+                    obj.customer_type = { $in: customers.split(',') };
                 } else {
-                    obj = { ...obj, 'en_data.customerTypeEN': customers.split(',') };
+                    obj = { ...obj, 'en_data.customerTypeEN': { $in: customers.split(',') } };
                 }
             }
 
@@ -238,11 +287,11 @@ const getProperties = async(req, res) => {
         const sortObj = () => {
             switch(sort){
                 case 'default':
-                    return { 'ratings.val': -1, 'ratings.no': -1, updatedAt: -1, createdAt: -1 };
+                    return { 'ratings.val': -1, 'ratings.no': -1, ...getPriceFieldName(), updatedAt: -1, createdAt: -1 };
                 case 'ratings':
                     return { 'ratings.val': -1, 'ratings.no': -1, createdAt: -1 }
                 case 'high-price':
-                    return { ...getPriceFieldName(), 'ratings.val': -1, 'ratings.no': -1, createdAt: -1 }
+                    return { ...getPriceFieldName(false, -1), 'ratings.val': -1, 'ratings.no': -1, createdAt: -1 }
                 case 'low-price':
                     return { ...getPriceFieldName(), 'ratings.val': -1, 'ratings.no': -1, createdAt: -1 }
                 default:
@@ -276,14 +325,12 @@ const getProperties = async(req, res) => {
 
         if(!properties || properties.length <= 0) return res.status(404).json({ message: 'not exist error' });
         
-        console.log('props length: ', properties.length);
+        // console.log('props length: ', properties.length);
 
         let count = null; 
 
         if(!(isValidNumber(Number(skip)) && Number(skip) > 0)) 
             count = await Property.find(filterObj()).countDocuments();
-
-        console.log('count: ', count);
 
         return res.status(200).json({ properties, count });
 
@@ -321,7 +368,7 @@ const createProperty = async(req, res) => {
 
         if(!isValidText(specific_catagory) || !allowedSpecificCatagory.includes(specific_catagory)) return res.status(400).json({ message: 'specific catagory error' });
 
-        if(!isValidText(title)) return res.status(400).json({ message: 'title error' });
+        if(!isValidText(title) || title.slice(0, 4) === 'unit') return res.status(400).json({ message: 'title error' });
 
         if(!isValidText(description)) return res.status(400).json({ message: 'desc error' });
 
@@ -343,7 +390,12 @@ const createProperty = async(req, res) => {
 
         if(capacity && !isValidNumber(capacity, null, 0)) return res.status(400).json({ message: 'capacity error' });
 
-        if(customer_type && !isValidText(customer_type)) return res.status(400).json({ message: 'capacity error' });
+        if(customer_type && customer_type?.length > 0) {
+            for (let i = 0; i < customer_type.length; i++) {
+                if(!isValidText(customer_type[i]))
+                    return res.status(400).json({ message: 'customer type error' });
+            }
+        } 
 
         if(en_data && !isValidEnData(en_data)) return res.status(400).json({ message: 'enDetails error' });
 
@@ -392,17 +444,9 @@ const createProperty = async(req, res) => {
 
         console.log('property id: ', property._id);
 
-        await User.updateOne({ _id: id }, {
-            $inc: { num_of_units: 1 },
-            $push: { notif: {
-                typeOfNotif: 'create-prop', 
-                targettedId: property._id,
-                name: property.title
-            }}
-        });
+        await sendAdminNotification('create-prop', property._id, id, property.title);
 
-        if(isValidEmail(email))
-            sendToEmail('انشاء وحدة', email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD, 'create-prop');
+        await sendNotification(email, 'create-prop', property._id, id, null, property.title, 1);
 
         return res.status(201).json({
             id: property._id
@@ -569,7 +613,7 @@ const addReview = async(req, res) => {
 
         if(!req || !req.user || !req.body || !req.query) return res.status(400).json({ message: 'request error' });
 
-        const { id, username } = req.user;
+        const { id, username, email } = req.user;
         
         const { propertyId } = req.query;
 
@@ -623,30 +667,18 @@ const addReview = async(req, res) => {
 
             const updatedInsertedProp = await updatePropertyRating(propertyId, inserted.ratings, 'add', Number(user_rating), null, null, null, inserted.owner_id);    
         
-            await User.updateOne({ _id: property.owner_id }, {
-                $push: { notif: {
-                    typeOfNotif: 'new-review', 
-                    targettedId: propertyId,
-                    userId: id,
-                    name: username
-                }}
-            });
+            await sendNotification(email, 'new-review', propertyId, property.owner_id, id, username);
 
             return res.status(201).json(updatedInsertedProp);
 
         } else {
+
             const updatedProp = await updatePropertyRating(propertyId, property.ratings, 'update', Number(user_rating), property.reviews?.find(i => i.writer_id?.toString() === id)?.user_rating, null, null, property.owner_id);
             
-            await User.updateOne({ _id: property.owner_id }, {
-                $push: { notif: {
-                    typeOfNotif: 'update-review', 
-                    targettedId: propertyId,
-                    userId: id,
-                    name: username
-                }}
-            });
+            await sendNotification(email, 'update-review', propertyId, property.owner_id, id, username);
 
             return res.status(201).json(updatedProp);
+
         }         
         
     } catch (err) {
@@ -673,12 +705,14 @@ const editProperty = async(req, res) => {
 
         if(details && !isValidDetails(details)) return res.status(400).json({ message: 'details error' });
 
+        console.log('prices: ', prices);
+
         // return res.status(400).json({ message: 'stop' });
 
         if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
             return res.status(400).json({ message: 'request error' });
 
-        if(title && !isValidText(title)) return res.status(400).json({ message: 'title error' });
+        if(title && (!isValidText(title) || title.slice(0, 4) === 'unit')) return res.status(400).json({ message: 'title error' });
         
         if(description && !isValidText(description)) return res.status(400).json({ message: 'desc error' });
 
@@ -699,7 +733,12 @@ const editProperty = async(req, res) => {
 
         if(capacity && !isValidNumber(capacity, null, 0)) return res.status(400).json({ message: 'capacity error' });
 
-        if(customerType && !isValidText(customerType)) return res.status(400).json({ message: 'customer type error' });
+        if(customerType && customerType?.length > 0) {
+            for (let i = 0; i < customerType.length; i++) {
+                if(!isValidText(customerType[i]))
+                    return res.status(400).json({ message: 'customer type error' });
+            }
+        } 
 
         if(landArea && !isValidText(landArea)) return res.status(400).json({ message: 'land area error' });
 
@@ -742,16 +781,9 @@ const editProperty = async(req, res) => {
 
         if(!property) return res.status(403).json({ message: 'access error' });
 
-        await User.updateOne({ _id: id }, {
-            $push: { notif: {
-                typeOfNotif: 'edit-prop', 
-                targettedId: propertyId,
-                name: title
-            }}
-        });
+        await sendAdminNotification('edit-prop', propertyId, id, title);
 
-        if(isValidEmail(email))
-            sendToEmail('تعديل الوحدة', email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD, 'edit-prop');
+        await sendNotification(email, 'edit-prop', propertyId, id, null, title);
 
         return res.status(201).json(property);
         
@@ -927,13 +959,7 @@ const deleteProperty = async(req, res) => {
 
         await Report.deleteOne({ reported_id: propertyId });
 
-        await User.updateOne({ _id: id }, { 
-            $inc: { num_of_units: -1 },
-            $push: { notif: {
-                typeOfNotif: 'delete-prop',
-                name: prop.title
-            }}
-        });
+        await sendNotification(null, 'delete-prop', propertyId, id, null, prop.title, -1);
 
         return res.status(201).json({ message: 'success' });
         

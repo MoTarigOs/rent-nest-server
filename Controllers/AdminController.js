@@ -5,19 +5,25 @@ const ErrorModel = require('../Data/ErrorModel.js');
 const VerCode = require('../Data/VerificationCode.js');
 const WL = require('../Data/WhiteList.js');
 const mongoose = require('mongoose');
-const { isValidText, isValidEmail, isValidNumber, updatePropertyRatingRemovedReview, updatePropertyRating, updateHostEvaluation } = require('../utils/logic.js');
+const { isValidText, isValidEmail, isValidNumber, updatePropertyRatingRemovedReview, updatePropertyRating, updateHostEvaluation, sendNotification, isValidDetails, citiesArray, isValidPrices, isValidTerms, isValidContacts, isValidEnData, isValidPoint, isValidBookDateFormat, getSkipObj, sendAdminNotification } = require('../utils/logic.js');
+const Notif = require('../Data/NotifModel.js');
 
 const getReports = async(req, res) => {
 
     try {
 
+        console.log('get reports');
+
         if(!req || !req.user) return res.status(400).json({ message: 'request error' });
 
-        const { skip } = req.body ? req.body : { skip: 0 };
+        const { cardsPerPage, skip } = req?.query;
+
+        const maxLimit = 36;
 
         const reports = await Report.find()
             .sort({ reportedTimes: -1, reviews_reportedTimes: -1, updatedAt: -1 })
-            .limit(300).skip((skip ? skip : 0) * 300);
+            .limit((isValidNumber(Number(cardsPerPage)) && Number(cardsPerPage) < maxLimit) ? Number(cardsPerPage) : maxLimit)
+            .skip(getSkipObj(skip));
 
         let idsArr = [];
         for (let i = 0; i < reports.length; i++) {
@@ -25,10 +31,16 @@ const getReports = async(req, res) => {
         }
 
         const properties = await Property.find({ _id: idsArr })
-            .limit(300).skip((skip ? skip : 0) * 300)
+            .limit((isValidNumber(Number(cardsPerPage)) && Number(cardsPerPage) < maxLimit) ? Number(cardsPerPage) : maxLimit)
+            .skip(getSkipObj(skip))
             .select('_id images title description ratings city reviews neighbourhood price discount specific_catagory');
         
-        return res.status(200).json({ reports, properties });
+        let count = null; 
+
+        if(!(isValidNumber(Number(skip)) && Number(skip) > 0)) 
+            count = await Report.find().countDocuments();
+
+        return res.status(200).json({ properties, reports, count });
 
     } catch (err) {
         console.log(err.message);
@@ -66,16 +78,24 @@ const getErrorsOccured = async(req, res) => {
 
         if(!req) return res.status(400).json({ message: 'request error' });
 
-        const skip = req?.body?.skip;
+        const { skip, cardsPerPage } = req?.query;
 
-        const is_storage = req?.query?.is_storage;
-        
-        const errors = await ErrorModel.find(is_storage ? { isStorageError: is_storage === 'true' } : null).sort({ createdAt: 1 })
-            .limit(300).skip((skip ? skip : 0) * 300);
+        console.log(skip);
+
+        const maxLimit = 36;
+
+        const errors = await ErrorModel.find().sort({ createdAt: 1 })
+        .limit((isValidNumber(Number(cardsPerPage)) && Number(cardsPerPage) < maxLimit) ? Number(cardsPerPage) : maxLimit)
+        .skip(getSkipObj(skip));
 
         if(!errors) return res.status(404).json({ message: 'not exist error' });
 
-        return res.status(200).json(errors);
+        let count = null; 
+
+        if(!(isValidNumber(Number(skip)) && Number(skip) > 0)) 
+            count = await ErrorModel.find().countDocuments();
+
+        return res.status(200).json({ errors, count });
 
     } catch (err) {
         console.log(err);
@@ -111,15 +131,28 @@ const getPropertiesForCheck = async(req, res) => {
 
     try {
 
-        const { skip } = req.query ? req.query : { skip: 0 };
+        const { skip, cardsPerPage } = req.query;
+
+        console.log('check: skip ', skip, ' cardsPerPage ', cardsPerPage);
+
+        const maxLimit = 36;
 
         const properties = await Property.find({ checked: false })
-            .select('_id images title description ratings city neighbourhood price discount specific_catagory')
-            .limit(300).sort({ createdAt: -1, updatedAt: -1 }).skip((skip ? skip : 0) * 300);
+            .select('_id images title description ratings city visible checked isRejected neighbourhood price discount specific_catagory')
+            .sort({ createdAt: -1, updatedAt: -1 })
+            .limit((isValidNumber(Number(cardsPerPage)) && Number(cardsPerPage) < maxLimit) ? Number(cardsPerPage) : maxLimit)
+            .skip(getSkipObj(skip));
 
         if(!properties) return res.status(404).json({ message: 'not exist error' });   
 
-        return res.status(200).json(properties);
+        let count = null; 
+
+        if(!(isValidNumber(Number(skip)) && Number(skip) > 0)) 
+            count = await Property.find({ checked: false }).countDocuments();
+
+            console.log('returning');
+
+        return res.status(200).json({ properties, count });
         
     } catch (err) {
         console.log(err);
@@ -132,16 +165,24 @@ const getHiddenProperties = async(req, res) => {
 
     try {
 
-        const { skip } = req.query ? req.query : { skip: 0 };
+        const { skip, cardsPerPage } = req.query;
 
-        const properties = await Property.find({ checked: false, visible: false })
-            .select('_id images title description ratings city neighbourhood price discount specific_catagory')
-            .limit(300).sort({ createdAt: -1, updatedAt: -1 }).skip((skip ? skip : 0) * 300);
+        const maxLimit = 36;
+
+        const properties = await Property.find({ visible: false })
+            .select('_id images title description ratings visible checked isRejected city neighbourhood price discount specific_catagory')
+            .limit((isValidNumber(Number(cardsPerPage)) && Number(cardsPerPage) < maxLimit) ? Number(cardsPerPage) : maxLimit)
+            .skip(getSkipObj(skip));
 
         if(!properties) return res.status(404).json({ message: 'not exist error' });   
 
-        return res.status(200).json(properties);
-        
+        let count = null; 
+
+        if(!(isValidNumber(Number(skip)) && Number(skip) > 0)) 
+            count = await Property.find({ visible: false }).countDocuments();
+
+        return res.status(200).json({ properties, count });
+
     } catch (err) {
         console.log(err);
         return res.status(501).json(err.message);
@@ -153,19 +194,28 @@ const getPropertiesByFilesDetails = async(req, res) => {
 
     try {
 
-        const { skip, isChecked, isVisible } = req.query ? req.query : { skip: 0, isChecked: null, isVisible: null };
+        const { skip, isChecked, isVisible, cardsPerPage } = req.query;
+
+        const maxLimit = 36;
 
         const properties = await Property.find({ 
                 checked: isChecked ? isChecked : [false, true], 
                 visible: isVisible ? isVisible : [false, true] 
-            }).select('_id images title description ratings city neighbourhood price discount specific_catagory checked visible files_details')
-            .limit(300).sort({ 
+            }).select('_id images title description ratings visible checked isRejected city neighbourhood price discount specific_catagory checked visible files_details')
+            .limit((isValidNumber(Number(cardsPerPage)) && Number(cardsPerPage) < maxLimit) ? Number(cardsPerPage) : maxLimit)
+            .skip(getSkipObj(skip))
+            .sort({ 
                 'files_details.total_size' : -1, 'files_details.no': 1
-            }).skip((skip ? skip : 0) * 300);
+            });
 
         if(!properties) return res.status(404).json({ message: 'not exist error' });   
+        
+        let count = null; 
 
-        return res.status(200).json(properties);
+        if(!(isValidNumber(Number(skip)) && Number(skip) > 0)) 
+            count = await Property.find({ checked: false }).countDocuments();
+
+        return res.status(200).json({ properties, count });
         
     } catch (err) {
         console.log(err);
@@ -190,9 +240,7 @@ const passProperty = async(req, res) => {
 
         if(!property) return res.status(403).json({ message: 'access error' });
 
-        await User.findOneAndUpdate({ _id: property.owner_id }, {
-            $push: { notif: { typeOfNotif: 'accept-prop', targettedId: propertyId } }
-        });
+        await sendNotification(null, 'accept-prop', propertyId, property.owner_id, null, property?.title);
 
         return res.status(201).json(property);
         
@@ -229,9 +277,7 @@ const rejectProperty = async(req, res) => {
 
         if(!property) return res.status(403).json({ message: 'access error' });
 
-        await User.findOneAndUpdate({ _id: property.owner_id }, {
-            $push: { notif: { typeOfNotif: 'reject-prop', targettedId: propertyId } }
-        });
+        await sendNotification(null, 'reject-prop', propertyId, property.owner_id, null, 'Reject reasons: ' + reasons?.toString());
 
         return res.status(201).json(property);
         
@@ -254,16 +300,13 @@ const deletePropertyAdmin = async(req, res) => {
 
         if(!mongoose.Types.ObjectId.isValid(propertyId)) return res.status(400).json({ message: 'request error' });
 
-        const prop = await Property.findOneAndDelete({ _id: propertyId, owner_id }).select('reviews');
+        const prop = await Property.findOneAndDelete({ _id: propertyId, owner_id }).select('reviews title');
 
         if(!prop) return res.status(403).json({ message: 'access error' });
 
         await updateHostEvaluation(owner_id, 'remove all', null, null, null, null, prop.reviews);
 
-        await User.updateOne({ _id: owner_id }, { 
-            $inc: { num_of_units: -1 },
-            $push: { notif: { typeOfNotif: 'delete-prop', targettedId: propertyId } }
-        });
+        await sendNotification(null, 'delete-prop', propertyId, owner_id, null, prop?.title, -1);
 
         return res.status(201).json({ message: 'success' });
         
@@ -379,7 +422,7 @@ const getUsers = async(req, res) => {
                 case 'user':
                     return { role: 'user' };
                 case 'admin':
-                    return { role: 'admin' };
+                    return { role: ['admin', 'owner'] };
                 case 'owner':
                     return { role: 'owner' };
                 case 'email_verified-true':
@@ -707,18 +750,229 @@ const convertToHost = async(req, res) => {
              account_type: { $ne: 'host' } 
         }, {
             ask_convert_to_host: false,
-            account_type: 'host',
-            $push: { notif: { typeOfNotif: 'converted-to-host', targettedId: userId } }
-        });
+            account_type: 'host'
+        }).select('email');
         
         if(updatedUser.modifiedCount < 1 || updatedUser.acknowledged === false) {
             return res.status(500).send("server error");
         }
 
-        // send notification to user email
+        await sendAdminNotification('new-host', userId, userId, updatedUser?.email);
+
+        await sendNotification(null, 'converted-to-host', null, userId, null, null);
 
         res.status(201).json({ message: 'success' });
 
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+
+};
+
+const setAbleToBookAdmin = async(req, res) => {
+
+    try {
+
+        if(!req || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { propertyId } = req.params;
+
+        if(!mongoose.Types.ObjectId.isValid(propertyId))
+            return res.status(400).json({ message: 'request error' });
+
+        const property = await Property.findOneAndUpdate({ _id: propertyId }, {
+            is_able_to_book: true
+        }, { new: true });
+
+        if(!property) return res.status(403).json({ message: 'access error' });
+
+        return res.status(201).json(property);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: err.message });
+    }
+
+};
+
+const setPreventBookAdmin = async(req, res) => {
+
+    try {
+
+        if(!req || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { propertyId } = req.params;
+
+        if(!mongoose.Types.ObjectId.isValid(propertyId))
+            return res.status(400).json({ message: 'request error' });
+
+        const property = await Property.findOneAndUpdate({ _id: propertyId }, {
+            is_able_to_book: false
+        }, { new: true });
+
+        if(!property) return res.status(403).json({ message: 'access error' });
+
+        return res.status(201).json(property);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: 'server error' });
+    }
+
+};
+
+const setBookedDaysAdmin = async(req, res) => {
+
+    try {
+
+        console.log('booked days: ', req?.body);
+        if(!req || !req.params || !req.body) return res.status(400).json({ message: 'request error' });
+
+        const { propertyId } = req.params;
+        const { bookedDays } = req.body;
+
+        if(!mongoose.Types.ObjectId.isValid(propertyId)
+            || !Array.isArray(bookedDays)
+            || bookedDays.length > 1200)
+            return res.status(400).json({ message: 'request error' });
+
+        for (let i = 0; i < bookedDays.length; i++) {
+            if(!isValidBookDateFormat(bookedDays[i])) return res.status(400).json({ message: 'date error' });
+        }
+
+        const property = await Property.findOneAndUpdate({ _id: propertyId }, {
+            booked_days: bookedDays
+        }, { new: true });
+
+        if(!property) return res.status(403).json({ message: 'access error' });
+
+        return res.status(201).json(property);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: 'server error' });
+    }
+
+};
+
+const editPropertyAdmin = async(req, res) => {
+
+    try {
+
+        if(!req || !req.params || !req.body) return res.status(400).json({ message: 'request error' });
+
+        const { propertyId } = req.params;
+        const { 
+            title, description, details, 
+            terms_and_conditions, contacts, discount,
+            enObj, cancellation, capacity, customerType,
+            prices, landArea, floor, city, neighbourhood,
+            map_coordinates, type_is_vehicle
+        } = req.body;
+
+        // return res.status(400).json({ message: 'stop' });
+
+        if(!mongoose.Types.ObjectId.isValid(propertyId))
+            return res.status(400).json({ message: 'request error' });
+
+        if(title && (!isValidText(title) || title.slice(0, 4) === 'unit')) return res.status(400).json({ message: 'title error' });
+        
+        if(description && !isValidText(description)) return res.status(400).json({ message: 'desc error' });
+
+        if(!isValidText(city) || !citiesArray.find(i => i.value === city)) return res.status(400).json({ message: 'city error' });
+
+        if(neighbourhood && !isValidText(neighbourhood)) return res.status(400).json({ message: 'neighbourhood error' });
+
+        if(prices && !isValidPrices(prices)) return res.status(400).json({ message: 'prices error' });
+
+        if(details && !isValidDetails(details)) return res.status(400).json({ message: 'details error' });
+        
+        if(terms_and_conditions && !isValidTerms(terms_and_conditions)) return res.status(400).json({ message: 'details error' });
+
+        if(contacts && !isValidContacts(contacts)) return res.status(400).json({ message: 'contacts error' });
+
+        if(discount?.percentage && (!isValidNumber(discount.percentage, 100, 0) || !isValidNumber(discount.num_of_days_for_discount, 2000, 0)))
+            return res.status(400).json({ message: 'discount error' });
+
+        if(capacity && !isValidNumber(capacity, null, 0)) return res.status(400).json({ message: 'capacity error' });
+
+        if(customerType && customerType?.length > 0) {
+            for (let i = 0; i < customerType.length; i++) {
+                if(!isValidText(customerType[i]))
+                    return res.status(400).json({ message: 'customer type error' });
+            }
+        } 
+
+        if(landArea && !isValidText(landArea)) return res.status(400).json({ message: 'land area error' });
+
+        if(floor && !isValidText(floor)) return res.status(400).json({ message: 'floor error' });
+        
+        if(enObj && !isValidEnData(enObj)) return res.status(400).json({ message: 'enDetails error' });
+
+        if(type_is_vehicle && typeof type_is_vehicle !== 'boolean') return res.status(400).json({ message: 'is vehicle error' });
+
+        if(map_coordinates && (map_coordinates.length !== 2 || !isValidPoint(map_coordinates[0], map_coordinates[1]))) return res.status(400).json({ message: 'coordinates error' });
+
+        const getUpdateObj = () => {
+            let obj = {
+                title,
+                description,
+                prices,
+                details,
+                terms_and_conditions,
+                checked: false,
+                isRejected: false,
+                reject_reasons: [],
+                contacts,
+                discount,
+                capacity,
+                customer_type: customerType,
+                landArea,
+                floor,
+                en_data: enObj,
+            }
+            if(type_is_vehicle) obj.city = city;
+            if(type_is_vehicle) obj.neighbourhood = neighbourhood;
+            if(!type_is_vehicle && enObj) delete obj.en_data['neighbourEN'];
+            if(isValidNumber(Number(cancellation), 10, null, 'start-zero')) obj.cancellation = cancellation;
+            return obj;
+        };
+
+        console.log(getUpdateObj());
+        //return res.status(400).json({ message: 'success' });
+        const property = await Property.findOneAndUpdate({ _id: propertyId, type_is_vehicle }, getUpdateObj(), { new: true });
+
+        if(!property) return res.status(403).json({ message: 'access error' });
+
+        if(!mongoose.Types.ObjectId.isValid(property.owner_id)) return res.status(201).json(property);
+
+        const user = User.findOne({ _id: property.owner_id }).select('email');
+
+        if(!user?.email || !isValidEmail(user.email)) return res.status(201).json(property);
+
+        await sendNotification(user?.email, 'edit-prop', propertyId, id, null, title);
+
+        return res.status(201).json(property);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+
+};
+
+const getAdminNotif = async(req, res) => {
+
+    try {
+
+        const notifs = await Notif.find()
+        .limit(500).sort({ createdAt: 1 });
+
+        if(!notifs) return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(200).json(notifs);
+        
     } catch (err) {
         console.log(err);
         return res.status(500).json({ message: 'server error' });
@@ -748,5 +1002,10 @@ module.exports = {
     getPropertiesByFilesDetails,
     promoteToAdmin,
     demoteFromAdmin,
-    convertToHost
+    convertToHost,
+    setAbleToBookAdmin,
+    setPreventBookAdmin,
+    setBookedDaysAdmin,
+    editPropertyAdmin,
+    getAdminNotif
 };

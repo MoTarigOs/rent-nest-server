@@ -1,5 +1,5 @@
 const asyncHandler = require('express-async-handler');
-const { isValidPassword, isValidUsername, isValidEmail, generateRandomCode, sendToEmail, isValidText, updateWhiteListAccessToken, deleteTokens, generateSecretKey, isValidNumber } = require('../utils/logic.js');
+const { isValidPassword, isValidUsername, isValidEmail, generateRandomCode, sendToEmail, isValidText, updateWhiteListAccessToken, deleteTokens, generateSecretKey, isValidNumber, sendNotification, sendAdminNotification } = require('../utils/logic.js');
 const User = require('../Data/UserModel.js');
 const VerCode = require('../Data/VerificationCode.js');
 const bcrypt = require('bcrypt');
@@ -70,6 +70,8 @@ const registerUser = async(req, res) => {
         });
 
         if(!user) return res.status(400).json({ message: "input error" });
+
+        await sendAdminNotification('new-user', user._id, user._id, user?.email);
 
         res.status(201).json({ message: "Account Successfully created" });
 
@@ -217,13 +219,12 @@ const verifyEmail = asyncHandler( async(req, res) => {
     });
 
     const updateUser = await User.findOneAndUpdate({ email }, { 
-        email_verified: true,
-        $push: { notif: {
-            typeOfNotif: 'email-verified'
-        }}
-    });
+        email_verified: true
+    }).select('_id');
 
     if(!updateUser) return res.status(500).send("server error");
+
+    await sendNotification(null, 'email-verified', null, updateUser._id);
 
     res.status(201).send("Successfully verified your Email");
 
@@ -262,16 +263,15 @@ const changePasswordSignPage = asyncHandler( async(req, res) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    const user = await User.updateOne({ email: email }, { 
-        password: hashedPassword, attempts: 0, email_verified: true,
-        $push: { notif: {
-            typeOfNotif: 'password-change'
-        }}
-    });
+    const user = await User.findOneAndUpdate({ email: email }, { 
+        password: hashedPassword, attempts: 0, email_verified: true
+    }).select('_id');
 
-    if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
+    if(!user) {
         return res.status(500).send("server error");
     }
+
+    await sendNotification(null, 'password-change', null, user._id);
 
     res.status(201).send("Successfully verified your Email");
 
@@ -412,7 +412,7 @@ const getUserInfo = asyncHandler(async(req, res) => {
     };
 
     const user = await User.findOne({ _id: id })
-        .select('_id email_verified username email role address ask_convert_to_host addressEN phone favourites books notif first_name last_name first_name_en last_name_en account_type');
+        .select('_id email_verified username email role address ask_convert_to_host addressEN phone favourites books notif first_name last_name first_name_en last_name_en account_type notif_enabled');
 
     if(!user) return res.status(404).json({ message: 'not exist error' });
 
@@ -435,7 +435,8 @@ const getUserInfo = asyncHandler(async(req, res) => {
         firstNameEN: user.first_name_en,
         lastNameEN: user.last_name_en,
         accountType: user.account_type,
-        waitingToBeHost: user.ask_convert_to_host
+        waitingToBeHost: user.ask_convert_to_host,
+        notifEnabled: user.notif_enabled
     });
 
 });
@@ -537,16 +538,15 @@ const changePassword = asyncHandler(async(req, res) => {
     /* hash the password */
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    const user = await User.updateOne({ email: email }, { 
-        password: hashedPassword, attempts: 0, email_verified: true,
-        $push: { notif: {
-            typeOfNotif: 'password-change'
-        }}
-    });
+    const user = await User.findOneAndUpdate({ email: email }, { 
+        password: hashedPassword, attempts: 0, email_verified: true
+    }).select('_id');
 
-    if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
+    if(!user) {
         return res.status(500).send("server error");
     }
+
+    await sendNotification(null, 'password-change', null, user._id);
 
     res.status(201).send("Successfully changed password");
 
@@ -578,13 +578,15 @@ const askConvertToHost = async(req, res) => {
 
         const updatedUser = await User.updateOne({ _id: id }, {
             ask_convert_to_host: true
-        });
+        }).select('email');
 
         console.log(updatedUser);
 
         if(updatedUser.modifiedCount < 1 || updatedUser.acknowledged === false) {
             return res.status(500).send("server error");
         }
+
+        await sendAdminNotification('ask-for-host', id, id, updatedUser?.email);
 
         res.status(201).json({ message: 'success' });
 
@@ -782,7 +784,7 @@ const addToBooks = async(req, res) => {
 
         if(!req || !req.user || !req.params || !req.body) return res.status(400).json({ message: 'request error' });
 
-        const { id, username } = req.user;
+        const { id, username, email } = req.user;
         const { propertyId } = req.params;
         const { startDate, endDate } = req.body;
 
@@ -829,14 +831,10 @@ const addToBooks = async(req, res) => {
                     booked_property_unit: property.unit_code,
                     booked_property_image: property.images?.at(0),
                     guest_name: username
-                }},
-                $push: { notif: {
-                    typeOfNotif: 'book', 
-                    targettedId: propertyId,
-                    userId: id,
-                    name: username
                 }}
             });
+
+            await sendNotification(null, 'book', propertyId, property.owner_id, id, username);
 
         } else {
 
@@ -851,14 +849,10 @@ const addToBooks = async(req, res) => {
                     booked_property_unit: property.unit_code,
                     booked_property_image: property.images?.at(0),
                     guest_name: username
-                }},
-                $push: { notif: {
-                    typeOfNotif: 'book', 
-                    targettedId: propertyId,
-                    userId: id,
-                    name: username
                 }}
             });
+
+            await sendNotification(null, 'book', propertyId, property.owner_id, id, username);
 
         }
 
@@ -1029,6 +1023,33 @@ const deleteNotifications = async(req, res) => {
 
 };
 
+const enableNotif = async(req, res) => {
+
+    try {
+
+        const id = req?.user?.id;
+        const state = req?.query?.state;
+
+        console.log('notif to : ', state === 'true');
+
+        if(!id || !state || (state !== 'false' && state !== 'true') || !mongoose.Types.ObjectId.isValid(id)) 
+            return res.status(500).json({ message: 'request error' });
+
+        const user = await User.updateOne({ _id: id }, { notif_enabled: state === 'true' });
+        
+        if(!user || user.modifiedCount < 1 || user.acknowledged === false) {
+            return res.status(500).json({ message: "server error" });
+        }
+
+        res.status(200).json({ message: 'success' });
+
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ message: 'server error' });
+    }
+
+};
+
 const editUser = async(req, res) => {
 
     try {
@@ -1089,6 +1110,6 @@ module.exports = {
     getUserInfo, refreshToken, changePassword,
     logoutUser, askConvertToHost, deleteAccount, getFavourites,
     addToFavourite, removeFromFavourite,
-    getBooks, addToBooks, removeFromBooks, 
+    getBooks, addToBooks, removeFromBooks, enableNotif,
     getGuests, verifyGuestBook, deleteGuestBook, deleteNotifications, editUser
 };

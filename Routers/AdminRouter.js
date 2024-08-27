@@ -1,8 +1,9 @@
 const express = require('express');
 const verifyAdmin = require('../middleware/VerifyIsAdmin.js');
 const verifyJWT = require('../middleware/VerifyJWT.js');
-const { getReports, getPropertiesForCheck, passProperty, deletePropertyAdmin, getHiddenProperties, hidePropertyAdmin, showPropertyAdmin, deleteReviewAdmin, getUsers, getUserByEmail, blockUser, unBlockUser, deleteAccountAdmin, getPropertiesByFilesDetails, deleteReviewsAdmin, promoteToAdmin, demoteFromAdmin, getErrorsOccured, deleteReport, deleteErrorOccured, rejectProperty, convertToHost, getUserById } = require('../Controllers/AdminController.js');
+const { getReports, getPropertiesForCheck, passProperty, deletePropertyAdmin, getHiddenProperties, hidePropertyAdmin, showPropertyAdmin, deleteReviewAdmin, getUsers, getUserByEmail, blockUser, unBlockUser, deleteAccountAdmin, getPropertiesByFilesDetails, deleteReviewsAdmin, promoteToAdmin, demoteFromAdmin, getErrorsOccured, deleteReport, deleteErrorOccured, rejectProperty, convertToHost, getUserById, setAbleToBookAdmin, setPreventBookAdmin, setBookedDaysAdmin, editPropertyAdmin, getAdminNotif } = require('../Controllers/AdminController.js');
 const verifyOwner = require('../middleware/VerifyIsOwner.js');
+const verifyReCaptcha = require('../middleware/VerifyReCaptcha.js');
 const router = express.Router();
 
 router.get('/reports', verifyJWT, verifyAdmin, getReports);
@@ -48,6 +49,20 @@ router.put('/promote-to-admin', verifyJWT, verifyOwner, promoteToAdmin);
 router.put('/demote-from-admin', verifyJWT, verifyOwner, demoteFromAdmin);
 
 router.put('/convert-to-host/:userId', verifyJWT, verifyAdmin, convertToHost);
+
+router.put('/able-to-book/:propertyId', verifyJWT, verifyAdmin, setAbleToBookAdmin);
+
+router.put('/prevent-book/:propertyId', verifyJWT, verifyAdmin, setPreventBookAdmin);
+
+router.put('/booked-days/:propertyId', verifyJWT, verifyAdmin, setBookedDaysAdmin);
+
+router.put('/edit/:propertyId', verifyJWT, verifyReCaptcha, verifyAdmin, editPropertyAdmin);
+
+router.get('/notifs', verifyJWT, verifyAdmin, getAdminNotif);
+
+
+
+
 
 // router.get('/promote-to-owner', verifyJWT, verifyOwner, toOwner);
 

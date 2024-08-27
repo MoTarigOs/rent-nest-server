@@ -9,6 +9,7 @@ const givenSetOriginal = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789abcdefghijklmnopqrs
 const testChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz -_.,+=!~;:#@0123456789أابتثجحخدذرزعغلمنهويئسشصضطكفقةىءؤ؛×÷ّآ,؟.';
 const validator = require('validator');
 const { default: mongoose } = require('mongoose');
+const Notif = require('../Data/NotifModel.js');
 
 const allowedSpecificCatagory = [
     'farm', 'apartment', 'resort', 'students', 
@@ -629,7 +630,7 @@ const generateRandomCode = () => {
 
 };
 
-const sendToEmail = async(msg, userEmail, gmailAccount, appPassword, type) => {
+const sendToEmail = async(msg, userEmail, gmailAccount, appPassword, type, name) => {
 
     return new Promise(function(resolve, reject) {
 
@@ -643,18 +644,58 @@ const sendToEmail = async(msg, userEmail, gmailAccount, appPassword, type) => {
               let htmlHeader = '';
               let htmlDesc = '';
 
-              if(type === 'create-prop'){
-                  htmlTitle = 'انشاء وحدة | Unit Created';
-                  htmlHeader = 'انشاء وحدة على منصة Rent Nest | Unit created on Rent Nest';
-                  htmlDesc = 'نود اعلامك بأن الوحدة التي قمت بارسالها تم اضافتها الى المنصة و في انتظار أن يتم مراجعتها و قبولها | We would like to inform you that the unit you sent has been added to the platform and is waiting to be reviewed and accepted.';
+              if(!type || type?.length <= 0){
+                htmlTitle = 'رمز أمان - Code - Rent Nest';
+                htmlDesc = 'هذا الرمز تم ارساله من قبل Rent Nest, الرجاء عدم مشاركته مع أي شخص. | This code was sent by Rent Nest, please do not share it with anyone.';
+                htmlHeader = sanitizedText;
+              } else if(type === 'create-prop'){
+                htmlTitle = 'انشاء وحدة | Unit Created';
+                htmlHeader = 'انشاء وحدة على منصة Rent Nest | Unit created on Rent Nest';
+                htmlDesc = 'نود اعلامك بأن الوحدة التي قمت بارسالها تم اضافتها الى المنصة و في انتظار أن يتم مراجعتها و قبولها | We would like to inform you that the unit you sent has been added to the platform and is waiting to be reviewed and accepted.';
               } else if(type === 'edit-prop'){
-                  htmlTitle = 'تعديل وحدة | Unit updated';
-                  htmlHeader = 'تعديل وحدة على المنصة | Edit Unit Rent Nest';
-                  htmlDesc = 'نود اعلامك بأنه قد تم تحميل التعديل على وحدة بانتظار مراجعته و قبوله | We would like to inform you that the amendment has been uploaded to a unit and is awaiting review and acceptance';
+                htmlTitle = 'تعديل وحدة | Unit updated';
+                htmlHeader = 'تعديل وحدة على المنصة | Edit Unit Rent Nest';
+                htmlDesc = 'نود اعلامك بأنه قد تم تحميل التعديل على وحدة بانتظار مراجعته و قبوله | We would like to inform you that the amendment has been uploaded to a unit and is awaiting review and acceptance';
+              } else if(type === 'delete-prop'){
+                htmlTitle = 'حذف وحدة | Unit deleted';
+                htmlHeader = 'حذف وحدة من منصة Rent Nest | Unit deleted from Rent Nest platform';
+                htmlDesc = `نود اعلامك بانه قد تم حذف وحدة بالعنوان "${name}" | We would like to inform you that a unit with the title has been deleted "${name}"`;
+              } else if(type === 'new-review'){
+                htmlTitle = 'مراجعة جديدة | New Review';
+                htmlHeader = 'مراجعة جديدة على احد وحداتك Rent Nest | New review on one of your units Rent Nest';
+                htmlDesc = `أحد المستخدمين بالاسم "${name}" قام بانشاء مراجعة عن وحدة تابعة لك | A user with name "${name}" had created a review about a unit you posted`;
+              } else if(type === 'update-review'){
+                htmlTitle = 'تعديل مراجعة | Review Modified';
+                htmlHeader = 'تعديل مراجعة على وحدة في Rent Nest | A review on your unit on Rent Nest had been modified';
+                htmlDesc = `أحد المستخدمين بالاسم "${name}" قام بتعديل مراجعة كتبها عن وحدة تابعة لك | A user with name "${name}" had modified a review he wrote about a unit you posted`;
+              } else if(type === 'accept-prop'){
+                htmlTitle = 'قبول الوحدة | Unit Approved';
+                htmlHeader = 'قبول وحدتك على منصة Rent Nest | Unit acceptedd on Rent Nest platform';
+                htmlDesc = `تهانينا نود اعلامك بانه قد تم قبول وحدة بالعنوان "${name}" | Congratulations, we would like to inform you that a unit with the title has been accepted "${name}"`;
+              } else if(type === 'reject-prop'){
+                htmlTitle = 'رفض وحدة | Unit Rejected';
+                htmlHeader = 'رفض وحدة Rent Nest | Unit rejected on Rent Nest platform';
+                htmlDesc = 'نود اعلامك بانه للاسف قد تم رفض وحدة لك الرجاء تسجيل الدخول و مراجعة قسم الشعارات من الملف الشخصي لمعرفة أسباب الرفض | There is no indication that unfortunately your unit has been rejected. Please log in and review the logo section of your profile due to the reason for rejection.'
+              } else if(type === 'converted-to-host'){
+                htmlTitle = 'تحويل الحساب الى معلن | Account converted to Host';
+                htmlHeader = 'حساب معلن على منصة Rent Nest | Host Account on Rent Nest platform';
+                htmlDesc = `نود اعلامك بانه قد تم تحويل حسابك من نزيل الى معلن الآن تستطيع انشاء وحدات على المنصة و تعديلها | We would like to inform you that your account has been converted from a guest to an advertiser. Now you can create units on the platform and modify them.`;
+              } else if(type === 'email-verified'){
+                htmlTitle = 'توثيق الحساب | Account verification';
+                htmlHeader = 'توثيق حسابك على منصة Rent Nest | Account Verification on Rent Nest platform';
+                htmlDesc = `نود اعلامك بانه قد تم تأكيد ملكيت للحساب و توثيقه باستخدام هذا الايميل | We would like to inform you that ownership of the account has been confirmed and authenticated using this email`;
+              } else if(type === 'password-change'){
+                htmlTitle = 'تغيير كلمة السر | Password Changed';
+                htmlHeader = 'تغيرت كلمة سر الحساب Rent Nest | Account password changed on Rent Nest platform';
+                htmlDesc = `قام شخص ما بتغيير كلمة سر هذا الحساب, اذا لم يك أنت الرجاء تغيير كلمة السر من صفحة تسجيل الدخول (اضغط على نسيت كلمة السر) و نتمنى أن تحافظ على أمان بريدك الالكتروني | Someone has changed the password for this account. If it is not you, please change the password from the login page (click on Forgot Password). We hope that you keep your email safe.`;
+              } else if(type === 'book'){
+                htmlTitle = 'حجز وحدة | Unit Reservation';
+                htmlHeader = 'حجز وحدة لك على منصة Rent Nest | Reservation request on your unit on Rent Nest platform';
+                htmlDesc = `فام أحد المستخدمين باضافة وحدة تابعة لك الى قائمة حجوزاته, راجع قسم المعروضات من الملف الشخصي بالمنصة لمعرفة تفاصيل أكثر | If a user has added a unit belonging to you to his reservations list, check the displayed section of the platform’s profile for more details.`;
               } else {
-                  htmlTitle = 'رمز أمان - Code - Rent Nest';
-                  htmlDesc = 'هذا الرمز تم ارساله من قبل Rent Nest, الرجاء عدم مشاركته مع أي شخص. | This code was sent by Rent Nest, please do not share it with anyone.';
-                  htmlHeader = sanitizedText;
+                htmlTitle = 'اشعار من Rent Nest';
+                htmlHeader = 'اشعار جديد من المنصة | New Notification from Rent Nest';
+                htmlDesc = 'هنالك اشعار من المنصة الرجاء الدخول الى حسابك و مراجعة قسم الاشعارات من الملف الشخصي | There is a notification from the platform. Please log in to your account and review the notifications section of your profile';
               }
 
               if(isTitle) return htmlTitle;
@@ -997,7 +1038,12 @@ const isValidEnData = (enData) => {
   if(enData.titleEN && !isValidText(enData.titleEN)) return false;
   if(enData.descEN && !isValidText(enData.descEN)) return false;
   if(enData.neighbourEN && !isValidText(enData.neighbourEN)) return false;
-  if(enData.customerTypeEN && !isValidText(enData.customerTypeEN)) return false; 
+  if(enData.customerTypeEN && enData.customerTypeEN?.length > 0) {
+      for (let i = 0; i < enData.customerTypeEN?.length; i++) {
+        if(!isValidText(enData.customerTypeEN[i]))
+          return false;
+      }
+  }  
   if(enData.english_details){
     enData.english_details.forEach(element => {
       if(!isValidText(element?.enName) || !isValidText(element?.arName)) return false;
@@ -1023,6 +1069,11 @@ const isValidTerms = (trms) => {
 const isValidPrices = (prices) => {
 
   let atLeastOneExist = false;
+
+  if(prices?.eventsPrice && !isValidNumber(prices.eventsPrice)) return false;
+  if(prices?.thursdayPrice && !isValidNumber(prices.thursdayPrice)) return false;
+  if(prices?.fridayPrice && !isValidNumber(prices.fridayPrice)) return false;
+  if(prices?.saturdayPrice && !isValidNumber(prices.saturdayPrice)) return false;
   
   if(prices?.daily && !isValidNumber(prices?.daily)) return false;
   else if(prices?.daily > 0) atLeastOneExist = true;
@@ -1423,7 +1474,74 @@ const updateHostEvaluation = async(id, type, newScore, oldScore, deletedScore, n
 
 };
 
-const sendNotification = async(toThisEmail) => {};
+const sendNotification = async(
+  email, type, targetId, accountId, userId, name,
+  increment
+  ) => {
+
+  try {
+
+    const getObj = () => {
+      let obj = {
+        $push: { notif: {
+          typeOfNotif: type, 
+          targettedId: targetId,
+          userId: userId,
+          name: name
+        }}
+      };
+      if(increment) obj = {
+        ...obj, $inc: { num_of_units: increment },
+      }
+      return obj;
+    };
+
+    const getFilterObj = () => {
+      let obj = {
+        _id: accountId
+      };
+      if(!increment) obj.notif_enabled = true;
+      return obj;
+    };
+
+    const user = await User.findOneAndUpdate(getFilterObj(), getObj()).select('email notif_enabled');
+
+    if(isValidEmail(user.email) && user.notif_enabled)
+      sendToEmail(type.replaceAll('-', ' '), user.email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD, type, name);
+    
+    return;
+
+  } catch (err) {
+    console.log(err);
+    return;
+  }
+
+};
+
+const getSkipObj = (skip) => {
+
+  if(!skip || typeof Number(skip) !== 'number') return 0;
+
+  if(Math.round(Number(skip)) <= 0 || Math.round(Number(skip)) > 1000) return 0;
+
+  return Math.round(Number(skip));
+
+};
+
+const sendAdminNotification = async(typeOfNotif, targettedId, userId, name) => {
+  try {
+      await Notif.create({
+        typeOfNotif, 
+        targettedId, 
+        userId, 
+        name
+      });
+      return;
+  } catch (err) {
+    console.log(err);
+    return;
+  }
+};
 
 module.exports = {
     JordanBoundryPoints,
@@ -1452,5 +1570,8 @@ module.exports = {
     isValidBookDateFormat,
     generateSecretKey,
     getUnitCode,
-    updateHostEvaluation
+    updateHostEvaluation,
+    sendNotification,
+    getSkipObj,
+    sendAdminNotification
 };
