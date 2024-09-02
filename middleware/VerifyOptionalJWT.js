@@ -15,6 +15,8 @@ const verifyJWTOptional = asyncHandler( async (req, res, next) => {
 
             if(!err && decoded) {
                 req.user = decoded.user;
+                if(req?.user?.email)
+                    req.user.email = req.user.email.toLowerCase();
             }
 
             next();

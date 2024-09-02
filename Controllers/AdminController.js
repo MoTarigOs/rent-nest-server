@@ -468,7 +468,7 @@ const getUserByEmail = async(req, res) => {
 
         if(!isValidEmail(email)) return res.status(400).json({ message: 'email error' });
         
-        const user = await User.findOne({ email }) 
+        const user = await User.findOne({ email: email.toLowerCase() }) 
             .select('_id first_name first_name_en username email phone role address addressEN account_type ask_convert_to_host email_verified books blocked isBlocked books');
 
         if(!user) return res.status(404).json({ message: 'not exist error' });

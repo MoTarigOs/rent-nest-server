@@ -10,7 +10,7 @@ const rateLimitMiddleware = require('./middleware/RateLimiter.js');
 const tooBusy = require('toobusy-js');
 const helmet = require('helmet');
 const buildLogger = require('./Logger/ProdLogger.js');
-const { getUnitCode } = require('./utils/logic.js');
+const { getUnitCode, isValidEmail } = require('./utils/logic.js');
 const PropertyModel = require('./Data/PropertyModel.js');
 const logger = buildLogger();
 
@@ -35,10 +35,23 @@ app.disable('x-powered-by');
 
 // check if req has user field, return 403 if it does have
 app.use((req, res, next) => {
+    
     if(!req || req.user) return res.status(403).json({ message: 'request error' });
-    else next();
+    
+    if(isValidEmail(req?.query?.email))
+        req.query.email = req.query.email.toLowerCase();
+
+    if(isValidEmail(req?.body?.email))
+        req.body.email = req.body.email.toLowerCase();
+    
+    next();
+
 });
 
+app.use((req, res, next) => {
+    console.log(req?.query?.email);
+    next();
+});
 
 // handle routers
 app.use("/user", require("./Routers/UserRouter.js"));

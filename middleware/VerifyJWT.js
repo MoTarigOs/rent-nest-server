@@ -24,6 +24,9 @@ const verifyJWT = asyncHandler( async (req, res, next) => {
 
             req.token_exp = (decoded.exp * 1000) - (decoded.iat * 1000);
 
+            if(req?.user?.email)
+                req.user.email = req.user.email.toLowerCase();
+
             const userEmail = req.user.email;
             const allowed = await checkWhiteListAccessToken(userEmail, token);
 
@@ -31,6 +34,7 @@ const verifyJWT = asyncHandler( async (req, res, next) => {
                 return res.status(401).json({ message: "jwt expired" });
 
             next();
+            
         })
     );
 });
