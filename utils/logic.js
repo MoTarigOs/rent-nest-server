@@ -1100,7 +1100,7 @@ const arrayLimitSchema = (val) => {
     return true;
 };
 
-const updatePropertyRating = async(propertyId, rateObj, type, newScore, oldScore, reviews, deletedWriterIds, ownerId) => {
+const updatePropertyRating = async(propertyId, rateObj, type, newScore, oldScore, reviews, deletedWriterIds, ownerId, deletedIds) => {
 
   if(type === 'add'){
       
@@ -1176,10 +1176,10 @@ const updatePropertyRating = async(propertyId, rateObj, type, newScore, oldScore
     console.log('reviews: ', reviews);
     for (let i = 0; i < reviews.length; i++) {
       const review = reviews[i];
-      if(deletedWriterIds.includes(review.writer_id?.toString())){
+      if(deletedWriterIds.includes(review.writer_id?.toString()) || deletedIds.includes(review._id?.toString())){
         deletedScore += review.user_rating;
         numOfDeletedReviews += 1;
-        deletedScoreArray.push(deletedScore)
+        deletedScoreArray.push(deletedScore);
       }
     }
 
@@ -1197,7 +1197,7 @@ const updatePropertyRating = async(propertyId, rateObj, type, newScore, oldScore
 
     const getNumOfReviewsObj = () => {
 
-      if(!deletedScoreArray?.length > 0) return null;
+      if(!deletedScoreArray?.length > 0) return {};
 
         let fives = 0, fours = 0, threes = 0, twos = 0, ones = 0;
         for (let i = 0; i < deletedScoreArray.length; i++) {
@@ -1216,6 +1216,8 @@ const updatePropertyRating = async(propertyId, rateObj, type, newScore, oldScore
         if(threes > 0) obj = { ...obj, 'num_of_reviews_percentage.three': -threes };
         if(twos > 0) obj = { ...obj, 'num_of_reviews_percentage.two': -twos };
         if(ones > 0) obj = { ...obj, 'num_of_reviews_percentage.one': -ones };
+
+        return obj;
 
     };
 

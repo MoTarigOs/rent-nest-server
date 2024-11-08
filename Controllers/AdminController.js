@@ -377,7 +377,7 @@ const deleteReviewsAdmin = async(req, res) => {
 
         if(!req || !req.params || !req.body) return res.status(400).json({ message: 'request error' });
 
-        const { writerIds } = req.body;
+        const { writerIds, ids } = req.body;
         const { propertyId } = req.params;
 
         for (let i = 0; i < writerIds.length; i++) {
@@ -386,12 +386,12 @@ const deleteReviewsAdmin = async(req, res) => {
         }
 
         const property = await Property.findOneAndUpdate({ _id: propertyId }, {
-            $pull: { reviews: { writer_id: { $in: writerIds } } }
+            $pull: { reviews: { $or: [{ writer_id: { $in: writerIds } }, { _id: { $in: ids } }] } }
         }).select('reviews ratings owner_id');
 
         if(!property) return res.status(404).json({ message: 'not exist error' });
 
-        const updatedProp = await updatePropertyRating(propertyId, property.ratings, 'remove', null, null, property.reviews, writerIds, property.owner_id);
+        const updatedProp = await updatePropertyRating(propertyId, property.ratings, 'remove', null, null, property.reviews, writerIds, property.owner_id, ids);
 
         return res.status(201).json(updatedProp);
         
@@ -980,6 +980,153 @@ const getAdminNotif = async(req, res) => {
 
 };
 
+const addBadge = async(req, res) => {
+    try {
+
+        if(!req || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { propertyId } = req.params;
+
+        if(!mongoose.Types.ObjectId.isValid(propertyId))
+        return res.status(400).json({ message: 'request error' });
+
+        const property = await Property.findOneAndUpdate({ _id: propertyId }, {
+            isBadge: true
+        }, { new: true });
+
+        if(!property) return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(200).json(property);
+
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+};
+
+const removeBadge = async(req, res) => {
+
+    try {
+
+        if(!req || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { propertyId } = req.params;
+
+        if(!mongoose.Types.ObjectId.isValid(propertyId))
+        return res.status(400).json({ message: 'request error' });
+
+        const property = await Property.findOneAndUpdate({ _id: propertyId }, {
+            isBadge: false
+        }, { new: true });
+
+        if(!property) return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(200).json(property);
+
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+
+};
+
+const setIsDealTrue = async(req, res) => {
+    try {
+
+        if(!req || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { propertyId } = req.params;
+
+        if(!mongoose.Types.ObjectId.isValid(propertyId))
+        return res.status(400).json({ message: 'request error' });
+
+        const property = await Property.findOneAndUpdate({ _id: propertyId }, {
+            isDeal: true
+        }, { new: true });
+
+        if(!property) return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(200).json(property);
+
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+};
+
+const setIsDealFalse = async(req, res) => {
+    try {
+
+        if(!req || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { propertyId } = req.params;
+
+        if(!mongoose.Types.ObjectId.isValid(propertyId))
+        return res.status(400).json({ message: 'request error' });
+
+        const property = await Property.findOneAndUpdate({ _id: propertyId }, {
+            isDeal: false
+        }, { new: true });
+
+        if(!property) return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(200).json(property);
+
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: 'server error' });
+    }
+};
+
+const addReviewAdmin = async(req, res) => {
+
+    try {
+
+        if(!req || !req.body || !req.params) return res.status(400).json({ message: 'request error' });
+
+        const { propertyId } = req.params;
+
+        const { text, user_rating, username } = req.body;
+
+        if(!mongoose.Types.ObjectId.isValid(propertyId) 
+            || !isValidText(username) 
+            || !isValidText(text) 
+            || !isValidNumber(user_rating) || user_rating > 5 || user_rating < 0){        
+            return res.status(400).json({ message: 'input error' });
+        }
+
+        const getReviewType = () => {
+            const x = Math.round(Number(user_rating));
+            if(x === 5) return { 'num_of_reviews_percentage.five': 1 };
+            if(x === 4) return { 'num_of_reviews_percentage.four': 1 };
+            if(x === 3) return { 'num_of_reviews_percentage.three': 1 };
+            if(x === 2) return { 'num_of_reviews_percentage.two': 1 };
+            if(x === 1) return { 'num_of_reviews_percentage.one': 1 };
+            return null;
+        };
+
+        const inserted = await Property.findOneAndUpdate({ _id: propertyId }, {
+            $push: { reviews: { 
+                writer_id: null, 
+                username: username,
+                text, user_rating: Number(user_rating).toFixed(2),
+                updatedAt: Date.now()
+            }},
+            $inc: getReviewType()
+        }).select('_id ratings owner_id');
+
+        if(!inserted) return res.status(403).json({ message: 'not exist error' });
+
+        const updatedInsertedProp = await updatePropertyRating(propertyId, inserted.ratings, 'add', Number(user_rating), null, null, null, inserted.owner_id);    
+    
+        return res.status(201).json(updatedInsertedProp);
+
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: 'server error' });
+    }
+};
+
 module.exports = {
     getReports,
     deleteReport,
@@ -1007,5 +1154,10 @@ module.exports = {
     setPreventBookAdmin,
     setBookedDaysAdmin,
     editPropertyAdmin,
-    getAdminNotif
+    getAdminNotif,
+    addBadge,
+    removeBadge,
+    setIsDealTrue,
+    setIsDealFalse,
+    addReviewAdmin
 };

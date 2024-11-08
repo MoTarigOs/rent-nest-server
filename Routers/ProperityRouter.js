@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createProperty, getProperty, getOwnerProperty, getProperties, addReview, editProperty, hideProperty, showProperty, deleteProperty, updateCoordinates, setAbleToBook, setPreventBook, setBookedDays, getPropertyByUnitCode, getHostDetails, getPropertiesByIds } = require('../Controllers/ProperityController.js');
+const { createProperty, getProperty, getOwnerProperty, getProperties, addReview, editProperty, hideProperty, showProperty, deleteProperty, updateCoordinates, setAbleToBook, setPreventBook, setBookedDays, getPropertyByUnitCode, getHostDetails, getPropertiesByIds, getDeals } = require('../Controllers/ProperityController.js');
 const verifyJWT = require('../middleware/VerifyJWT.js');
 const verifyJWTOptional = require('../middleware/VerifyOptionalJWT.js');
 const verifyReCaptcha = require('../middleware/VerifyReCaptcha.js');
@@ -18,6 +18,8 @@ router.get('/host-details/:userId', getHostDetails);
 router.post('/create', verifyJWT, verifyReCaptcha, createProperty);
 
 router.get('/owner/:userId', getOwnerProperty);
+
+router.get('/deals', getDeals);
 
 router.put('/edit/:propertyId', verifyJWT, verifyReCaptcha, editProperty);
 

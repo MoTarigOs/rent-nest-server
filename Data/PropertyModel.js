@@ -214,6 +214,14 @@ const propertyShema = mongoose.Schema({
         }],
         default: undefined,
         validate: [arrayLimitSchema, 'array limit error']
+    },
+    isBadge: {
+        type: Boolean,
+        default: false
+    },
+    isDeal: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true }).index({ 
     'title' : 'text', 

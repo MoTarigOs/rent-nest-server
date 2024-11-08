@@ -49,7 +49,7 @@ app.use((req, res, next) => {
 });
 
 app.use((req, res, next) => {
-    console.log(req?.query?.email);
+    console.log(req?.url);
     next();
 });
 

@@ -170,7 +170,7 @@ const getProperties = async(req, res) => {
             if(quickFilter && isValidText(quickFilter)){
                 if(quickFilter.includes('free-cancel')) obj.cancellation = [0,1,2,3,5,6,7,8];
                 if(quickFilter.includes('no-insurance')) obj = { ...obj, 'details.insurance' : false };
-                if(quickFilter.includes('discounts')) obj = { ...obj, 'discount.percentage' : { $gte: 1 } };
+                if(quickFilter.includes('discounts')) obj = { ...obj, $or: [ { isDeal: true }, {'discount.percentage': { $gte: 1 }} ] }
             }
 
             if(bedroomFilter?.length > 0 && isValidText(bedroomFilter)){
@@ -321,7 +321,7 @@ const getProperties = async(req, res) => {
             
         const properties = await Property.find(filterObj())
             .limit((isValidNumber(Number(cardsPerPage)) && Number(cardsPerPage) < maxLimit) ? Number(cardsPerPage) : maxLimit).sort(sortObj()).skip(skipObj())
-            .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN prices discount specific_catagory'); 
+            .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN prices discount specific_catagory isDeal'); 
 
         if(!properties || properties.length <= 0) return res.status(404).json({ message: 'not exist error' });
         
@@ -566,7 +566,7 @@ const getOwnerProperty = async(req, res) => {
 
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(501).json({ message: 'server error' });
     }
 
 };
@@ -602,7 +602,7 @@ const getHostDetails = async(req, res) => {
 
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(501).json({ message: 'server error' });
     }
 
 };
@@ -683,7 +683,7 @@ const addReview = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(501).json({ message: 'server error' });
     }
 };
 
@@ -816,7 +816,7 @@ const hideProperty = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(501).json({ message: 'server error' });
     }
 
 };
@@ -843,7 +843,7 @@ const showProperty = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(501).json({ message: 'server error' });
     }
 
 };
@@ -870,7 +870,7 @@ const setAbleToBook = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(501).json({ message: 'server error' });
     }
 
 };
@@ -897,7 +897,7 @@ const setPreventBook = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(501).json({ message: 'server error' });
     }
 
 };
@@ -932,7 +932,7 @@ const setBookedDays = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(501).json({ message: 'server error' });
     }
 
 };
@@ -965,9 +965,27 @@ const deleteProperty = async(req, res) => {
         
     } catch (err) {
         console.log(err);
-        return res.status(501).json({ message: err.message });
+        return res.status(501).json({ message: 'server error' });
     }
 
+};
+
+const getDeals = async(req, res) => {
+
+    try {
+
+        const props = await Property.find({ 
+            $or: [ { isDeal: true }, {'discount.percentage': { $gte: 1 }} ] 
+        }).sort({ 'ratings.val': -1, 'discount.percentage': -1 });
+
+        if(!props) return res.status(404).json({ message: 'not exist error' });
+
+        return res.status(200).json(props);
+        
+    } catch (err) {
+        console.log(err);
+        return res.status(501).json({ message: 'server error' });
+    }
 };
 
 module.exports = {
@@ -985,7 +1003,8 @@ module.exports = {
     setAbleToBook,
     setPreventBook,
     setBookedDays,
-    deleteProperty
+    deleteProperty,
+    getDeals
 };
 
 
