@@ -150,7 +150,7 @@ const getPropertiesForCheck = async(req, res) => {
         if(!(isValidNumber(Number(skip)) && Number(skip) > 0)) 
             count = await Property.find({ checked: false }).countDocuments();
 
-            console.log('returning');
+            console.log('returning count: ', count, ' props num: ', properties?.length);
 
         return res.status(200).json({ properties, count });
         
@@ -181,6 +181,8 @@ const getHiddenProperties = async(req, res) => {
         if(!(isValidNumber(Number(skip)) && Number(skip) > 0)) 
             count = await Property.find({ visible: false }).countDocuments();
 
+        console.log('count: ', count, ' propsNum: ', properties?.length);    
+
         return res.status(200).json({ properties, count });
 
     } catch (err) {
@@ -198,10 +200,7 @@ const getPropertiesByFilesDetails = async(req, res) => {
 
         const maxLimit = 36;
 
-        const properties = await Property.find({ 
-                checked: isChecked ? isChecked : [false, true], 
-                visible: isVisible ? isVisible : [false, true] 
-            }).select('_id images title description ratings visible checked isRejected city neighbourhood price discount specific_catagory checked visible files_details')
+        const properties = await Property.find().select('_id images title description ratings visible checked isRejected city neighbourhood price discount specific_catagory checked visible files_details')
             .limit((isValidNumber(Number(cardsPerPage)) && Number(cardsPerPage) < maxLimit) ? Number(cardsPerPage) : maxLimit)
             .skip(getSkipObj(skip))
             .sort({ 
@@ -213,7 +212,10 @@ const getPropertiesByFilesDetails = async(req, res) => {
         let count = null; 
 
         if(!(isValidNumber(Number(skip)) && Number(skip) > 0)) 
-            count = await Property.find({ checked: false }).countDocuments();
+            count = await Property.find().countDocuments();
+
+        
+        console.log('count: ', count, ' propsNum: ', properties?.length, ' isChecked: ', isChecked, ' isVisible: ', isVisible);    
 
         return res.status(200).json({ properties, count });
         

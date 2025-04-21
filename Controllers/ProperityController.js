@@ -15,7 +15,7 @@ const getProperties = async(req, res) => {
 
         const { 
             city, type_is_vehicle, specific, price_range, 
-            min_rate, text, sort, long, lat, skip, categories,
+            min_rate, searchText, neighbourText, text, sort, long, lat, skip, categories,
             quickFilter, isEnglish, isCount, cardsPerPage,
             reservationType,
             unitCode,
@@ -69,7 +69,8 @@ const getProperties = async(req, res) => {
                 return res.status(400).json({ message: 'price error' });
         }
 
-        if(text && !isValidText(text)) return res.status(400).json({ message: 'text error' });
+        if(searchText && !isValidText(searchText)) return res.status(400).json({ message: 'search text error' });
+        if(neighbourText && !isValidText(neighbourText)) return res.status(400).json({ message: 'neighbour text error' });
 
         if(cardsPerPage && !isValidNumber(Number(cardsPerPage))) return res.status(400).json({ message: 'cards per page error' });
 
@@ -236,11 +237,29 @@ const getProperties = async(req, res) => {
             //     }
             // }    
             
-            if(text) {
+            if(searchText?.length > 0 || neighbourText?.length > 0) {
+                const searchTextObj = () => {
+                    const obbArr = [];
+                    if(searchText?.length > 0)
+                        searchText.split(' ').forEach((i) => {
+                            obbArr.push({ title: { $regex: "^" + i, $options: "i" } });
+                            obbArr.push({ 'en_data.titleEN': { $regex: "^" + i, $options: "i" } });
+                            obbArr.push({ 'en_data.descEN': { $regex: "^" + i, $options: "i" } });
+                            obbArr.push({ description: { $regex: "^" + i, $options: "i" } });
+                        });
+                    if(neighbourText?.length > 0)
+                        neighbourText.split(' ').forEach((i) => {
+                            obbArr.push({ neighbourhood: { $regex: "^" + i, $options: "i" } });
+                            obbArr.push({ 'en_data.descEN': { $regex: "^" + i, $options: "i" } });
+                            obbArr.push({ description: { $regex: "^" + i, $options: "i" } });
+                            obbArr.push({ 'en_data.neighbourEN': { $regex: "^" + i, $options: "i" } });
+                        });
+                    return obbArr;
+                };
                 if(secondObj){
-                    secondObj = { ...secondObj, $text : { $search : text } };
+                    secondObj = { ...secondObj, $or: searchTextObj() };
                 } else {
-                    secondObj = { ...obj, $text : { $search : text } };
+                    secondObj = { ...obj, $or: searchTextObj() };
                 }
             }
 
@@ -271,10 +290,6 @@ const getProperties = async(req, res) => {
                     }
                 }
             }
-
-            // console.log('secondOb: ', secondObj);
-
-            // console.log('obj: ', obj);
 
             if(secondObj){
                 return secondObj;
@@ -657,7 +672,7 @@ const addReview = async(req, res) => {
                 $push: { reviews: { 
                     writer_id: id, 
                     username: username,
-                    text, user_rating: Number(user_rating).toFixed(2),
+                    text, user_rating: Number(user_rating)?.toFixed(2),
                     updatedAt: Date.now()
                 }},
                 $inc: getReviewType()
@@ -667,7 +682,7 @@ const addReview = async(req, res) => {
 
             const updatedInsertedProp = await updatePropertyRating(propertyId, inserted.ratings, 'add', Number(user_rating), null, null, null, inserted.owner_id);    
         
-            await sendNotification(email, 'new-review', propertyId, property.owner_id, id, username);
+            await sendNotification(email, 'new-review', propertyId, inserted.owner_id, id, username);
 
             return res.status(201).json(updatedInsertedProp);
 
