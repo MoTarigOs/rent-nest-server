@@ -66,7 +66,7 @@ const registerUser = async(req, res) => {
             last_name: lastName,
             phone,
             address,
-            ask_convert_to_host: accountType?.length > 0 ? true : false
+            ask_convert_to_host: (accountType?.length > 0 && accountType == 'host') ? true : false
         });
 
         if(!user) return res.status(400).json({ message: "input error" });
@@ -235,6 +235,8 @@ const changePasswordSignPage = asyncHandler( async(req, res) => {
     if(!req || !req.body) return res.status(403).send("Error in the request");
 
     const { eCode, newPassword, email } = req.body;
+
+    console.log('body: ', req.body);
     
     if(!isValidEmail(email) || !isValidText(eCode) || eCode.length !== 6 || !isValidPassword(newPassword)) return res.status(403).send("Error in the request");
 
@@ -265,7 +267,7 @@ const changePasswordSignPage = asyncHandler( async(req, res) => {
 
     const user = await User.findOneAndUpdate({ email: email }, { 
         password: hashedPassword, attempts: 0, email_verified: true
-    }).select('_id');
+    }).select('_id email');
 
     if(!user) {
         return res.status(500).send("server error");
@@ -279,10 +281,14 @@ const changePasswordSignPage = asyncHandler( async(req, res) => {
 
 const loginUser = asyncHandler(async (req, res) => {
 
+    console.log('body: ', req.body);
+
     if(req?.body === null || req?.body === undefined)
         return res.status(404).json({message: "request error"});
 
     const { email, password } = req.body;
+
+    console.log('em & ps: ', email, ' / ', password);
     
     if(!email || !password) return res.status(400).json({message: "empty field"});
 
@@ -376,7 +382,7 @@ const loginUser = asyncHandler(async (req, res) => {
                 maxAge: (90 * 24 * 60 * 60 * 1000)
             });
             res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
-            res.json(({ message: wasBlocked ? "was blocked" : "login success" }));
+            res.json(({ message: wasBlocked ? "was blocked" : "login success", at: accessToken, rt: refreshToken }));
         } else {
             res.status(500).json({message: "server error"});
         }
@@ -443,7 +449,23 @@ const getUserInfo = asyncHandler(async(req, res) => {
 
 const refreshToken = asyncHandler( async (req, res) => {
 
-    const refreshTokenCookie = req?.cookies?._r_t ? req.cookies._r_t : null;
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+
+    let refreshTokenCookie;
+
+    console.log('authHeader in Refresh', authHeader);
+
+    if (req.cookies?._a_t) {
+        // Web Flow: Extract from Cookie
+        token = req.cookies._a_t;
+    } else if (authHeader?.startsWith('Bearer ')) {
+        // Mobile Flow: Extract from "Bearer <token>"
+        token = authHeader.split(' ')[1];
+    } else {
+    console.log('returned early in Refresh');
+
+        return res.status(401).json({ message: "jwt expired" });
+    }
 
     if(!refreshTokenCookie) return res.status(400).json({ message: "login error" });
 
@@ -500,7 +522,7 @@ const refreshToken = asyncHandler( async (req, res) => {
                 maxAge: (90 * 24 * 60 * 60 * 1000)
             });
             res.cookie('is_logined', 'true', { maxAge: (30 * 24 * 60 * 60 * 1000) });
-            res.json({ message: "refreshed successfully" });
+            res.json({ message: "refreshed successfully", at: accessToken, rt: refreshToken });
 
         })
     )
@@ -692,6 +714,8 @@ const addToFavourite = async(req, res) => {
         const { id } = req.user;
         const { propertyId } = req.params;
 
+        console.log('Adding, ', propertyId);
+
         if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
             return res.status(400).json({ message: 'request error' });
 
@@ -718,6 +742,8 @@ const removeFromFavourite = async(req, res) => {
 
         const { id } = req.user;
         const { propertyId } = req.params;
+
+        console.log('Removing, ', propertyId);
 
         if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(propertyId))
             return res.status(400).json({ message: 'request error' });

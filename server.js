@@ -17,7 +17,8 @@ const logger = buildLogger();
 connectDB();
 
 app.set("trust proxy", 1);
-app.use(cors({ origin: process.env.ALLOWED_ORIGIN, credentials: true, allowedHeaders: 'Content-Type' })); //allowedHeaders: ['Content-Type', 'Authorization', 'authorization']
+// app.use(cors({ origin: process.env.ALLOWED_ORIGIN, credentials: true, allowedHeaders: ['Content-Type', 'Authorization', 'authorization'] })); //allowedHeaders: ['Content-Type', 'Authorization', 'authorization']
+app.use(cors()) //temporarly for testing
 app.use(express.urlencoded({ extended: false })); 
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
@@ -80,7 +81,7 @@ app.use((err, req, res, next) => {
 process.on("uncaughtException", (err) => {
 
     console.error('uncaughtException error occured: ', err.message);
-
+    
     async function waitForLogger(trans) {
         const transportsFinished = trans.transports.map(t => new Promise(resolve => t.on('finish', resolve)));
         trans.end();

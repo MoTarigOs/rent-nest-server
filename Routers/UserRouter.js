@@ -4,7 +4,8 @@ const verifyJWT = require('../middleware/VerifyJWT.js');
 const verifyReCaptcha = require('../middleware/VerifyReCaptcha.js');
 const router = express.Router();
 
-router.post("/register", verifyReCaptcha, registerUser);
+// router.post("/register", verifyReCaptcha, registerUser);
+router.post("/register", registerUser); //use above recaptcha
 
 router.get("/check-username/:username", checkUsername);
 
@@ -14,9 +15,11 @@ router.post("/send-code-sign-page", sendCodeToEmailSignPage);
 
 router.post("/verify-email", verifyJWT, verifyEmail);
 
-router.post("/change-password-sign-page", verifyReCaptcha, changePasswordSignPage);
+// router.post("/change-password-sign-page", verifyReCaptcha, changePasswordSignPage);
+router.post("/change-password-sign-page", changePasswordSignPage); //use above recaptcha
 
-router.post("/login", verifyReCaptcha, loginUser);
+// router.post("/login", verifyReCaptcha, loginUser);
+router.post("/login", loginUser); //use the above
 
 router.get("/info", verifyJWT, getUserInfo);
 

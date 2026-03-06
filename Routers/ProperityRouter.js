@@ -15,13 +15,15 @@ router.get('/', verifyJWTOptional, getProperties);
 
 router.get('/host-details/:userId', getHostDetails);
 
-router.post('/create', verifyJWT, verifyReCaptcha, createProperty);
+// router.post('/create', verifyJWT, verifyReCaptcha, createProperty);
+router.post('/create', verifyJWT, createProperty); //use above recaptcha
 
 router.get('/owner/:userId', getOwnerProperty);
 
 router.get('/deals', getDeals);
 
-router.put('/edit/:propertyId', verifyJWT, verifyReCaptcha, editProperty);
+// router.put('/edit/:propertyId', verifyJWT, verifyReCaptcha, editProperty);
+router.put('/edit/:propertyId', verifyJWT, editProperty); //use above recaptcha
 
 router.put('/hide/:propertyId', verifyJWT, hideProperty);
 

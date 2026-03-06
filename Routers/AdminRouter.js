@@ -58,7 +58,8 @@ router.put('/prevent-book/:propertyId', verifyJWT, verifyAdmin, setPreventBookAd
 
 router.put('/booked-days/:propertyId', verifyJWT, verifyAdmin, setBookedDaysAdmin);
 
-router.put('/edit/:propertyId', verifyJWT, verifyReCaptcha, verifyAdmin, editPropertyAdmin);
+// router.put('/edit/:propertyId', verifyJWT, verifyReCaptcha, verifyAdmin, editPropertyAdmin);
+router.put('/edit/:propertyId', verifyJWT, verifyAdmin, editPropertyAdmin); //use above
 
 router.get('/notifs', verifyJWT, verifyAdmin, getAdminNotif);
 

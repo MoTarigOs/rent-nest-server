@@ -1508,8 +1508,8 @@ const sendNotification = async(
 
     const user = await User.findOneAndUpdate(getFilterObj(), getObj()).select('email notif_enabled');
 
-    if(isValidEmail(user.email) && user.notif_enabled)
-      sendToEmail(type.replaceAll('-', ' '), user.email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD, type, name);
+    if(isValidEmail(user?.email) && user?.notif_enabled)
+      sendToEmail(type.replaceAll('-', ' '), user?.email, process.env.GMAIL_ACCOUNT, process.env.GMAIL_APP_PASSWORD, type, name);
     
     return;
 

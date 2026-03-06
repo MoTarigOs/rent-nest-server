@@ -54,12 +54,15 @@ const getProperties = async(req, res) => {
         if(type_is_vehicle && type_is_vehicle !== 'false' && type_is_vehicle !== 'true') return res.status(400).json({ message: 'type_is_vehicle error' });
 
         if(specific && !allowedSpecificCatagory.includes(specific)) return res.status(400).json({ message: 'specific error' });
+
+        if (categories) {
+            const arr = categories.split(',');
         
-        if(categories){
-            categories?.split(',')?.forEach(element => {
-                if(!allowedSpecificCatagory.includes(element))
+            for (let element of arr) {
+                if (!allowedSpecificCatagory.includes(element)) {
                     return res.status(400).json({ message: 'categories error' });
-            });
+                }
+            }
         }
 
         if(price_range &&
@@ -309,6 +312,8 @@ const getProperties = async(req, res) => {
                     return { ...getPriceFieldName(false, -1), 'ratings.val': -1, 'ratings.no': -1, createdAt: -1 }
                 case 'low-price':
                     return { ...getPriceFieldName(), 'ratings.val': -1, 'ratings.no': -1, createdAt: -1 }
+                case 'by-date':
+                    return { createdAt: -1, 'ratings.val': -1, 'ratings.no': -1 }
                 default:
                     return { 'ratings.val': -1, 'ratings.no': -1, updatedAt: -1, createdAt: -1 };
             }
@@ -336,11 +341,11 @@ const getProperties = async(req, res) => {
             
         const properties = await Property.find(filterObj())
             .limit((isValidNumber(Number(cardsPerPage)) && Number(cardsPerPage) < maxLimit) ? Number(cardsPerPage) : maxLimit).sort(sortObj()).skip(skipObj())
-            .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN prices discount specific_catagory isDeal'); 
+            .select('_id map_coordinates images title description booked_days ratings city neighbourhood en_data.titleEN en_data.neighbourEN prices discount specific_catagory isDeal details.rooms landArea customer_type details.bathrooms details.pool '); 
 
         if(!properties || properties.length <= 0) return res.status(404).json({ message: 'not exist error' });
         
-        // console.log('props length: ', properties.length);
+        console.log('props length: ', properties.length);
 
         let count = null; 
 
