@@ -17,7 +17,21 @@ const logger = buildLogger();
 connectDB();
 
 app.set("trust proxy", 1);
-// app.use(cors({ origin: process.env.ALLOWED_ORIGIN, credentials: true, allowedHeaders: ['Content-Type', 'Authorization', 'authorization'] })); //allowedHeaders: ['Content-Type', 'Authorization', 'authorization']
+// app.use(cors({ 
+//     origin: process.env.ALLOWED_ORIGIN, 
+//     credentials: true, 
+//     allowedHeaders: ['Content-Type', 'Authorization', 'authorization'] 
+// })); //allowedHeaders: ['Content-Type', 'Authorization', 'authorization']
+
+app.use(cors({ 
+    origin: (origin, callback) => {
+      // If no origin (like mobile apps or curl), or any origin, allow it
+      callback(null, true); 
+    }, 
+    credentials: true, 
+    allowedHeaders: ['Content-Type', 'Authorization', 'authorization'] 
+}));
+
 app.use(cors()) //temporarly for testing
 app.use(express.urlencoded({ extended: false })); 
 app.use(express.json({ limit: "10kb" }));

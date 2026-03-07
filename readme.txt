@@ -5,3 +5,5 @@
     - Mail Sender (send emails via )
     - JWT tokens
     - Winston Logger (log events)
+
+    commit 10th
